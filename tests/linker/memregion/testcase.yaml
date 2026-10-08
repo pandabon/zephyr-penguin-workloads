@@ -1,0 +1,6 @@
+tests:
+  linker.memregion:
+    arch_allow: riscv
+    integration_platforms:
+      - chipyard_penguin/penguin
+    tags: linker

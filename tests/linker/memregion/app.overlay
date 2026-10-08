@@ -1,0 +1,16 @@
+/*
+ * Stand-in for a scratchpad: carve the top 64 KiB out of DRAM and describe it
+ * as a separate zephyr,memory-region node. Real scratchpads are described the
+ * same way, just at their own addresses (see docs/memory.md).
+ */
+&ram0 {
+	reg = <0x80000000 0x0fff0000>;	/* 256 MiB - 64 KiB */
+};
+
+/ {
+	fake_scratch: memory@8fff0000 {
+		compatible = "zephyr,memory-region", "mmio-sram";
+		reg = <0x8fff0000 0x10000>;
+		zephyr,memory-region = "FAKE_SCRATCH";
+	};
+};
