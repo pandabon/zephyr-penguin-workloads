@@ -1,7 +1,9 @@
 /*
- * Stand-in for a scratchpad: carve the top 64 KiB out of DRAM and describe it
- * as a separate zephyr,memory-region node. Real scratchpads are described the
- * same way, just at their own addresses (see docs/memory.md).
+ * Stand-in for a scratchpad that Spike can really execute against: carve the
+ * top 64 KiB out of DRAM and describe it as a separate zephyr,memory-region
+ * node. The real scratchpad (spad0 at 0x0800_0000, penguin.dtsi) is described
+ * the same way but Spike does not model that address, so it is not used for
+ * the load/store check here; it just coexists as a second region.
  */
 &ram0 {
 	reg = <0x80000000 0x0fff0000>;	/* 256 MiB - 64 KiB */
