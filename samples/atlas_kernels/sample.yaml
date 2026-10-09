@@ -1,0 +1,17 @@
+sample:
+  name: atlas_kernels
+tests:
+  # Needs real Atlas hardware: Spike has no Atlas model, so the first CSR
+  # access traps. build_only keeps it in the build matrix (twister and
+  # scripts/run_tests.py both honour it) without running it.
+  sample.penguin.atlas_kernels:
+    platform_allow: chipyard_penguin/penguin
+    tags: atlas hardware
+    build_only: true
+  # Same code, TA's VCU118 variant (HTIF console, 50 kHz mtime). Build-only
+  # for the same reason; run_tests.py only builds the board it is given
+  # (--board chipyard_penguin/penguin/vcu118_ta), see docs/testing.md.
+  sample.penguin.vcu118_ta.atlas_kernels:
+    platform_allow: chipyard_penguin/penguin/vcu118_ta
+    tags: atlas hardware
+    build_only: true
