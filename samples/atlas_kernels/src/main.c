@@ -3,6 +3,12 @@
  *
  * Atlas host tests ported from the Atlas team's own bring-up suite.
  *
+ * CREDIT: tests and Atlas programs by the Atlas/Saturn team (git authors of
+ * tests/: kellytou / "T.K.", Eric Wen, Nicolas Rakela (Herrera), Nicolas Reed;
+ * Jerry Zhao for the Chipyard base tests/). Origin:
+ * ~/toolsB/tapeout-chipyard, tests/ (+ generators/sp26-atlas-acc), commit
+ * 48c3a7d11f6de3f0cecb33ae6a31c24ec26ff9d8 (submodule sp26-atlas-acc 2ae0bef209df).
+ *
  * Source of every test: ~/toolsB/tapeout-chipyard/tests/ (the files the
  * Atlas/Saturn team ran in VCS on EE290SimConfig and, via
  * run_post_gate_atlas_tests.sh, on the gate-level netlist of
