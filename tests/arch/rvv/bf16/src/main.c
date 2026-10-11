@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  *
  * BF16 vector instructions on the Penguin (Shuttle + Saturn) ISA, checked
- * against scalar C references. Why: D17 enabled BF16 in the board; this proves
+ * against scalar C references. Why: the board enables BF16; this proves
  * that the compiler/assembler flags, the Spike --isa string and the
  * instruction behaviour agree.
  *
