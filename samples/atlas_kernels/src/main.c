@@ -6,10 +6,10 @@
  * CREDIT: tests and Atlas programs by the Atlas/Saturn team (git authors of
  * tests/: kellytou / "T.K.", Eric Wen, Nicolas Rakela (Herrera), Nicolas Reed;
  * Jerry Zhao for the Chipyard base tests/). Origin:
- * ~/toolsB/tapeout-chipyard, tests/ (+ generators/sp26-atlas-acc), commit
+ * the course tapeout repo (tapeout-chipyard), tests/ (+ generators/sp26-atlas-acc), commit
  * 48c3a7d11f6de3f0cecb33ae6a31c24ec26ff9d8 (submodule sp26-atlas-acc 2ae0bef209df).
  *
- * Source of every test: ~/toolsB/tapeout-chipyard/tests/ (the files the
+ * Source of every test: the course tapeout repo (tapeout-chipyard)/tests/ (the files the
  * Atlas/Saturn team ran in VCS on EE290SimConfig and, via
  * run_post_gate_atlas_tests.sh, on the gate-level netlist of
  * EE290TapeoutConfig). The IMEM images below are copied word for word from
@@ -33,7 +33,7 @@
  * Not ported (need generated golden headers / DRAM at 0x9000_0000 / BF16 or
  * FP8 data): tri_phase*, smolvla_compose*, quad_phase_large, pi0_slice,
  * vmem_dram_dual, 8dma_rvv_vmem, fp8_*_bridge, 4rung_2bank_arb, 3way_arb,
- * dmem_sbus_dma. See README.rst.
+ * dmem_sbus_dma (all are listed in samples/atlas_upstream/tests.cmake).
  *
  * Timing rule copied from upstream: between atlas_start() and the host's
  * concurrent IMEM staging there must be NO printk. UART/HTIF output costs

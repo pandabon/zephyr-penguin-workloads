@@ -11,7 +11,7 @@ tests:
     build_only: true
   # Same code, TA's VCU118 variant (HTIF console, 50 kHz mtime). Build-only
   # for the same reason; run_tests.py only builds the board it is given
-  # (--board chipyard_penguin/penguin/vcu118_ta), see docs/testing.md.
+  # (--board chipyard_penguin/penguin/vcu118_ta).
   sample.penguin.vcu118_ta.atlas_kernels:
     platform_allow: chipyard_penguin/penguin/vcu118_ta
     tags: atlas hardware

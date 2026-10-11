@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # CREDIT: the tests this sample builds, and the generators/assembler it calls, are
-# the Atlas/Saturn team's work, used unmodified from ~/toolsB/tapeout-chipyard
+# the Atlas/Saturn team's work, used unmodified from the course tapeout repo (tapeout-chipyard)
 # (tests/, generators/sp26-atlas-acc/baremetal/), commit
 # 48c3a7d11f6de3f0cecb33ae6a31c24ec26ff9d8, submodule sp26-atlas-acc 2ae0bef209df. git authors of tests/: kellytou
 # ("T.K."), Eric Wen, Nicolas Rakela (Herrera), Nicolas Reed; sp26-atlas-acc
@@ -23,8 +23,7 @@
 # Variables (all optional except that ATLAS_TEST defaults to the smallest test):
 #   ATLAS_TEST        test name from tests.cmake (the upstream file stem)
 #   TAPEOUT_CHIPYARD  tapeout-chipyard checkout; env var of the same name, else
-#                     $HOME/toolsB/tapeout-chipyard (mirrors BRINGUP_CHIPYARD in
-#                     env.sh and samples/atlas_smoke/regen_kernels.py)
+#                     $HOME/toolsB/tapeout-chipyard (the course machines' location)
 # The checkout is only READ. Everything generated (assembled Atlas kernels,
 # golden-data headers) goes into the build directory.
 
@@ -44,7 +43,8 @@ set(UP_ATLAS "${TAPEOUT_CHIPYARD}/generators/sp26-atlas-acc")
 if(NOT EXISTS "${UP_TESTS}/atlas_mmio.h")
   message(FATAL_ERROR
     "TAPEOUT_CHIPYARD='${TAPEOUT_CHIPYARD}' has no tests/atlas_mmio.h. "
-    "Pass -DTAPEOUT_CHIPYARD=<checkout> or export TAPEOUT_CHIPYARD.")
+    "Pass -DTAPEOUT_CHIPYARD=<checkout> or export TAPEOUT_CHIPYARD. "
+    "(scripts/run_tests.py skips these scenarios when the checkout is absent.)")
 endif()
 
 include(${CMAKE_CURRENT_LIST_DIR}/tests.cmake)   # defines ATLAS_ALL_TESTS + per-test facts
@@ -65,7 +65,7 @@ project(atlas_upstream)
 message(STATUS "atlas_upstream: test ${ATLAS_TEST} (${_kind}) from ${UP_TESTS}")
 
 # ---- generated inputs --------------------------------------------------------------
-# Kinds (see README.rst for the inventory):
+# Kinds (inventory: tests.cmake):
 #   asis    the .c only needs atlas_mmio.h (the IMEM program is an array inside the .c)
 #   kernel  + kernel_<k>.h (Atlas .S assembled by the team's assembler.py) and a
 #             random-data golden header; pure python (no numpy/torch)

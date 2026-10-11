@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  *
  * CREDIT: the tests this sample builds, and the generators/assembler it calls, are
- * the Atlas/Saturn team's work, used unmodified from ~/toolsB/tapeout-chipyard
+ * the Atlas/Saturn team's work, used unmodified from the course tapeout repo (tapeout-chipyard)
  * (tests/, generators/sp26-atlas-acc/baremetal/), commit
  * 48c3a7d11f6de3f0cecb33ae6a31c24ec26ff9d8, submodule sp26-atlas-acc 2ae0bef209df. git authors of tests/: kellytou
  * ("T.K."), Eric Wen, Nicolas Rakela (Herrera), Nicolas Reed; sp26-atlas-acc
