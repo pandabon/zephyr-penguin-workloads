@@ -8,7 +8,7 @@
 sample:
   name: atlas_upstream
 common:
-  tags: atlas hardware atlas_upstream
+  tags: atlas hardware atlas_upstream needs_path:TAPEOUT_CHIPYARD
   build_only: true
 tests:
   sample.penguin.atlas_upstream.atlas_alu_basic:
