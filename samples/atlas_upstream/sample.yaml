@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 # Build-only: Spike has no Atlas model (see samples/atlas_kernels/sample.yaml).
 # One scenario per upstream test and board variant; run_tests.py builds only the
 # board it is given, so the vcu118_ta ones SKIP on the default board (build-check
