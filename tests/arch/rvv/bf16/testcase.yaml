@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 tests:
   arch.riscv.rvv.bf16:
     # Needs the BF16 vector extension (soc Kconfig selects ZVFBFMIN, D17) and a

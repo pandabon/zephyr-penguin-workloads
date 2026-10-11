@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 */
 /*
  * Proves that a DT zephyr,memory-region node becomes a linker region + output
  * section, and that Z_GENERIC_SECTION(<region name>) places data in it.
