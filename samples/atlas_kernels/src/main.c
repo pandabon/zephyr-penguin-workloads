@@ -20,9 +20,6 @@
  *     baremetal/assembly/saturn_atlas_cooperative/{saturn_atlas_two_phase,sab_a_to_high,sab_b}.S):
  *     Nicolas Reed, rylee4761
  * (the Atlas/Saturn team, EE194 Sp26). Our port: Jonathan Lin.
- * Acknowledgement: the IMEM arrays were produced with the team's assembler,
- * sp26-atlas-acc baremetal/assembler.py (kellytou, Jason Tang, Eric Wen, rylee4761,
- * aabel14, Brandon Kim), for the Atlas NPU designed by the Atlas team.
  *
  * Source of every test: the course tapeout repo (tapeout-chipyard)/tests/ (the files the
  * Atlas/Saturn team ran in VCS on EE290SimConfig and, via
