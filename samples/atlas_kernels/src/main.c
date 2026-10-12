@@ -8,11 +8,18 @@
  * the University of California, full text in ../LICENSE.tapeout-chipyard. The surrounding
  * Zephyr host code (I/O, timeouts, result reporting) is ours, Apache-2.0.
  *
- * CREDIT: tests and Atlas programs by the Atlas/Saturn team (git authors of
- * tests/: kellytou / "T.K.", Eric Wen, Nicolas Rakela (Herrera), Nicolas Reed;
- * Jerry Zhao for the Chipyard base tests/). Origin:
- * the course tapeout repo (tapeout-chipyard), tests/ (+ generators/sp26-atlas-acc), commit
- * 48c3a7d11f6de3f0cecb33ae6a31c24ec26ff9d8 (submodule sp26-atlas-acc 2ae0bef209df).
+ * CREDIT (every author of the copied material, from `git log --follow` in the course tapeout
+ * repo at 48c3a7d11f6de3f0cecb33ae6a31c24ec26ff9d8, submodule sp26-atlas-acc 2ae0bef209df):
+ *   - tests/atlas_alu_basic.c ................ Eric Wen, Nicolas Reed
+ *   - tests/saturn_atlas_vmem_smoke.c ........ Nicolas Reed
+ *   - tests/saturn_atlas_pause_resume.c ...... Nicolas Reed, kellytou
+ *   - tests/saturn_atlas_buffered_optB_restart.c  Nicolas Reed
+ *   - tests/saturn_atlas_buffered_optA_end_jal.c  Nicolas Reed, kellytou
+ *   - tests/saturn_atlas_buffered_lower_first.c   Nicolas Reed, kellytou
+ *   - Atlas kernels the IMEM arrays were assembled from (sp26-atlas-acc
+ *     baremetal/assembly/saturn_atlas_cooperative/{saturn_atlas_two_phase,sab_a_to_high,sab_b}.S):
+ *     Nicolas Reed, rylee4761
+ * (the Atlas/Saturn team, EE194 Sp26). Our port: Jonathan Lin.
  *
  * Source of every test: the course tapeout repo (tapeout-chipyard)/tests/ (the files the
  * Atlas/Saturn team ran in VCS on EE290SimConfig and, via
