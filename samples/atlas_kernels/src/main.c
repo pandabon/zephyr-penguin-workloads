@@ -1,7 +1,12 @@
 /*
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
  *
  * Atlas host tests ported from the Atlas team's own bring-up suite.
+ *
+ * LICENSING: the IMEM program arrays below are copied from the course tapeout repo
+ * (tests/, a fork of Chipyard); that repo is BSD-3-Clause, Copyright (c) The Regents of
+ * the University of California, full text in ../LICENSE.tapeout-chipyard. The surrounding
+ * Zephyr host code (I/O, timeouts, result reporting) is ours, Apache-2.0.
  *
  * CREDIT: tests and Atlas programs by the Atlas/Saturn team (git authors of
  * tests/: kellytou / "T.K.", Eric Wen, Nicolas Rakela (Herrera), Nicolas Reed;
