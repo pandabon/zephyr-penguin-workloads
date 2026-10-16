@@ -13,12 +13,14 @@ published (see Credits).
 |---|---|---|
 | `atlas/kernels/` | The Atlas team's first bring-up tests, ported to one Zephyr app (IMEM programs as arrays, Zephyr I/O, timeouts). | nothing |
 | `atlas/upstream/` | The Atlas/Saturn team's 22 host tests (`tests/saturn_atlas_*.c`, `atlas_alu_basic.c`) built from source, one test per build (`-DATLAS_TEST=<name>`). 13 build as they are; 9 need `torch` to generate golden data. | nothing (torch for 9) |
+| `basics/` | `hello_world`, `timer`, `mt_rvv` (4 threads, each keeps its vector register across a yield): small bring-up checks, single hart. | nothing |
+| `saturn/benchmarks/` | 55 of Saturn's vector benchmarks as one Zephyr app (`-DSATURN_BENCH=<name>`). | nothing |
+| `executorch/mnist/` | A small ExecuTorch model (XNNPACK RVV kernels) on the SoC. **Opt-in.** | ExecuTorch + XNNPACK checkouts, `flatc`, python |
 | `third_party/tapeout-chipyard/` | The copied Atlas team sources those apps build. Same paths as in the tapeout-chipyard repo, so a checkout can replace it. Read `NOTICE`. | - |
 | `known_failures.yaml` | Scenarios expected to fail (empty). | - |
 
-Planned, each as its own group folder with its own apps and its own opt-in dependencies (D29): `saturn/benchmarks/`
-(Saturn's tests, built in place from their repo), `executorch/` (MNIST etc.). A new group never adds dependencies
-to the others.
+Each group is a folder with its own apps (`<group>/<app>/`) and its own opt-in dependencies; a new group never adds
+dependencies to the others.
 
 Every app has a `sample.yaml` with scenarios for the two boards: `chipyard_penguin/penguin` (Spike-style board) and
 `chipyard_penguin/penguin/vcu118_ta` (FPGA, HTIF console).
@@ -135,6 +137,79 @@ vec-slide-conv vec-sgemm vec-sgemv vec-conv-3 vec-sgemm-v3 vec-sep-conv-3 vec-ig
 Not for the bench: `vec-roi-align` (1.8 MB), `vec-jacobi2d`, `vec-fconv3d` (0.5-0.6 MB each). Put the FP8 and bf16-reduction
 programs on the bench only to test those instructions: they are the point of running on hardware, since Spike cannot.
 
+## ExecuTorch (`executorch/mnist/`, opt-in)
+
+A small ExecuTorch model (XNNPACK delegate, RISC-V Vector micro-kernels) runs on the SoC under Zephyr. Console is HTIF on
+`chipyard_penguin/penguin` and the UART on `chipyard_penguin/penguin/vcu118_ta`. ExecuTorch and XNNPACK are **not** part
+of this repo (no copy, no submodule): you provide them, nothing is downloaded and nothing in them is modified. Without
+them CMake stops at configure with a message listing what is missing, and the rest of the repo is unaffected.
+
+| What | Variable | Tested with |
+|---|---|---|
+| ExecuTorch checkout, directory **named `executorch`** | `EXECUTORCH_DIR` | pandabon/executorch branch `zephyr-1.0.1-bf16` @ `c19e05968e8d` (ExecuTorch 1.0.1 + bf16/RVV changes) |
+| XNNPACK checkout | `XNNPACK_DIR` (optional if `EXECUTORCH_DIR/backends/xnnpack/third-party/XNNPACK` works) | pandabon/XNNPACK branch `torch-1.0.0-bump-bf16` @ `c0d34218458` (RVV, Zvfbfmin, Zvfbfa kernels) |
+| `flatc` and `python3` with `torchgen`, `pyyaml` | on `PATH`, or `FLATC_EXECUTABLE`, `PYTHON_EXECUTABLE` | an environment with flatc, torch 2.9.1, executorch 1.0.1 |
+| the BSP and its SDK environment | your BSP workspace (`west`) | zephyr-chipyard-bsp `dev/main` d1cff22, SDK 1.0.0-beta1 |
+
+Only `executorch/mnist/scripts/gen_model.py` needs the `executorch`/`torch` python packages (to re-export a model);
+building does not. The CMake builds ExecuTorch through a symlink mirror in the build directory, so flatcc's build outputs
+land in the build directory and `EXECUTORCH_DIR` stays untouched.
+
+```sh
+export EXECUTORCH_DIR=/path/to/executorch XNNPACK_DIR=/path/to/XNNPACK
+export PATH=/path/to/env/bin:$PATH             # flatc, python3 (or PYTHON_EXECUTABLE / FLATC_EXECUTABLE)
+executorch/mnist/scripts/build.sh chipyard_penguin/penguin           mnist_mlp_fp32 build/exec_fp32_chip   # about 4 min at -j16
+executorch/mnist/scripts/build.sh chipyard_penguin/penguin           mnist_mlp_bf16 build/exec_bf16_chip
+executorch/mnist/scripts/build.sh chipyard_penguin/penguin/vcu118_ta mnist_mlp_fp32 build/exec_fp32_ta
+west build -d build/exec_fp32_chip -t run          # Spike, ISA derived from the board (includes zvfbfa)
+```
+`build.sh` prints the `west build` line it runs (`-DEXEC_MODEL=<name or path to .pte>`). Models in
+`executorch/mnist/models/`: `mnist_mlp_fp32`, `mnist_mlp_bf16`, `lenet_bf16_user` (provenance in `models/SOURCES.txt`).
+Re-export: `python executorch/mnist/scripts/gen_model.py --precision bf16 --pte executorch/mnist/models/mnist_mlp_bf16.pte`.
+Twister/`make suite` scenarios (`workload.executorch.*`, tag `executorch`) are build-only and need the variables above.
+
+Expected output (fixed all-ones input; the values, not their meaning, are the check):
+```
+I [executorch:...] Model PTE file loaded. Size: 106792 bytes.
+I [executorch:...] Model executed successfully.
+Output[0][0]: 0.000000
+Output[0][1]: 493.999390
+Output[0][2]: -3.000000
+Output[0][3]: -3.000000
+Output[0][4]: 3592.199463
+Output[0][5]: -3.000000
+Output[0][6]: -3.000000
+Output[0][7]: 1047.199829
+Output[0][8]: -3.000000
+Output[0][9]: -3.000000
+I [executorch:...] Program complete, exiting.
+```
+then a clean HTIF exit with code 0 (FAIL = exit code 1). `mnist_mlp_bf16` prints `496.000000`, `3600.000000`,
+`1048.000000` at indices 1, 4, 7 (bf16 rounding). `lenet_bf16_user` (random weights) prints
+`0.014099 0.032959 0.090332 0.062500 0.027710 0.014648 -0.107422 0.115723 -0.099121 0.008972`.
+Chip and TA builds give identical numbers on Spike. The bf16 models use Zvfbfmin/Zvfbfa instructions: a core without
+them traps (illegal instruction) in `xnn_bf16_*_rvv_zvfbfmin_zvfbfa`; set `XNNPACK_ENABLE_RISCV_ZVFBFMIN/ZVFBFA` OFF then.
+
+**On the bench.** Load the ELF with uart_tsi (chip: 921600 baud, TA VCU118: 115200 baud). **Load time is set by `memsz`,
+not the file size**: the loader also sends the zero-filled `.bss`/noinit over the link. Strip debug info only
+(`riscv64-zephyr-elf-strip --strip-debug`; never a plain `strip`, the host needs `tohost` from the symbol table).
+
+| ELF | memsz | filesz | 921600 baud (chip) full / `.fast` | 115200 baud (TA) full / `.fast` |
+|---|---|---|---|---|
+| mnist fp32 | 14.39 MB | 12.17 MB | 159 s / 135 s | 21.2 min / 17.9 min |
+| mnist bf16 | 14.34 MB | 12.12 MB | 159 s / 134 s | 21.1 min / 17.9 min |
+| lenet bf16 | 14.38 MB | 12.16 MB | 159 s / 135 s | 21.2 min / 17.9 min |
+
+`seconds = memsz * 1.0195 / (baud / 10)` (TSI 1024-byte chunks, 20-byte header each, 8N1); estimates, not measured on
+hardware. A `.fast.elf` is the same ELF with `p_memsz = p_filesz` (`fastload_elf.py` from penguin-bringup-tools), so the
+zeros are not sent (Zephyr clears its own `.bss`); opt-in until validated on the bench. About 12 MB of the image is
+XNNPACK micro-kernels (the "prod" set links all of them); trimming that is the way to a shorter load.
+
+Notes: the runner's inputs come from a static pool, so the stock `BufferCleanup` would `free()` them when `main()`
+returns (fault in `set_chunk_used`); the runner passes an empty span instead. `CONFIG_SMP=y` with
+`MP_MAX_NUM_CPUS=1` and POSIX threads are ExecuTorch's threadpool requirements, not a second hart. XNNPACK
+`c0d34218458` was only in the author's local clone when this was written (not yet on the `pandabon/XNNPACK` remote).
+
 ## Credits and licences
 
 * `third_party/tapeout-chipyard/` is the **Atlas/Saturn team's** work (authors: kellytou, Nicolas Reed, Eric Wen,
@@ -145,5 +220,14 @@ programs on the bench only to test those instructions: they are the point of run
   Atlas team before publication.
 * `atlas/kernels/` adapts the team's tests (credits in `src/main.c`, licence text `LICENSE.tapeout-chipyard`);
   `atlas/upstream/` is our build glue around their sources. Our own files are Apache-2.0 (SPDX headers).
+* `executorch/mnist/` is derived from ExecuTorch's `examples/arm/executor_runner` (Meta Platforms, Inc. and Arm Limited,
+  BSD-style licence of the ExecuTorch repo), as ported to RISC-V by Jonathan Lin in pandabon/zephyr-chipyard-sw, branch
+  `exeggutorch` @ e12bfa38034 (`samples/exeggutorch/executor_runner`, `samples/exeggutorch/model/gen_pte.py`). Per-file
+  credits are in the file headers; the models' provenance is in `executorch/mnist/models/SOURCES.txt`.
+* `basics/{hello_world,timer,mt_rvv}` are Dima Nikiforov's samples (hello_world, timer, test_mt_rvv) from
+  ucb-bar/zephyr-chipyard-sw, branch `dev` @ 838a4fed2be; `hello_world` and `mt_rvv` derive from Zephyr's
+  `samples/hello_world` (Wind River Systems, Apache-2.0). That repo has no LICENSE file (only the SPDX lines in the
+  files): fine for a private repo, to be cleared before publication. Our changes (single hart, exit code, scenarios)
+  are in the second commit of `basics/`.
 * History: `atlas/kernels` and `atlas/upstream` come with their full git history from
   zephyr-chipyard-bsp `dev/main` d1cff22 (`samples/atlas_kernels`, `external/atlas_upstream`).

@@ -1,0 +1,15 @@
+Models (ExecuTorch .pte, XNNPACK-delegated). Small enough for git (55-107 KB); regenerate with
+scripts/gen_model.py (needs the executorch + torch python packages, see the ExecuTorch section of the repo README.md).
+
+mnist_mlp_fp32.pte   106792 bytes  scripts/gen_model.py --precision fp32 ...
+                     MNIST MLP 784-32-16-10 with hand-crafted weights (recognises 0, 1, 4, 7).
+                     Re-export is byte-identical (checked 2026-10-16 with torch 2.9.1 / executorch 1.0.1).
+mnist_mlp_bf16.pte    55336 bytes  scripts/gen_model.py --precision bf16 ...  (same model, bf16 weights)
+                     New on 2026-10-16 (exports reproducibly; not byte-compared to anything older).
+lenet_bf16_user.pte   95912 bytes  Jonathan Lin's samples/exeggutorch/model/model.pte (working tree, 2026-05-02) of
+                     pandabon/zephyr-chipyard-sw branch exeggutorch @ e12bfa38034 (uncommitted file there).
+                     It is LeNet (1x1x28x28 input), bf16, RANDOM weights (gen_pte.py --model lenet --precision bf16;
+                     same size as a fresh export, contents differ because the weights are random and unseeded).
+                     This is the "bf16" model of the 2026-10-09 bench ELFs (not the MNIST MLP). Not
+                     reproducible: keep this file as the reference for its Spike output.
+Authors: Jonathan Lin (UC Berkeley). Exported with ExecuTorch (Meta, BSD).

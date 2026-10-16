@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: Apache-2.0
+# ExecuTorch workloads are OPT-IN: they need EXECUTORCH_DIR (and usually XNNPACK_DIR) set, plus
+# flatc/python on PATH, or CMake stops at configure. Twister has no "skip unless env var" key,
+# so the tests carry the tag `executorch`: leave them out of a normal run with
+#   twister -e executorch ...
+# and select them with `--tag executorch` after exporting the variables (see the ExecuTorch section of the repo README.md).
+# They are build-only; the Spike run is `west build -t run` (expected output in the repo README.md).
+sample:
+  name: penguin_executorch_mnist
+  description: ExecuTorch MNIST MLP (XNNPACK RVV kernels) on the Penguin SoC
+common:
+  build_only: true
+  tags: executorch workload rvv
+  platform_allow:
+    - chipyard_penguin/penguin
+    - chipyard_penguin/penguin/vcu118_ta
+  harness: console
+  harness_config:
+    type: multi_line
+    regex:
+      - "Model executed successfully"
+      - "Output\\[0\\]\\[0\\]:"
+tests:
+  workload.executorch.mnist_fp32:
+    extra_args: EXEC_MODEL=mnist_mlp_fp32
+  workload.executorch.mnist_bf16:
+    extra_args: EXEC_MODEL=mnist_mlp_bf16
+  workload.executorch.lenet_bf16_user:
+    extra_args: EXEC_MODEL=lenet_bf16_user
