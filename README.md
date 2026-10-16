@@ -103,6 +103,38 @@ and our environment has no torch, so they are marked `skip: true`. In an environ
 `-DTAPEOUT_CHIPYARD=<checkout>` (or the environment variable) makes `atlas/upstream` build from that checkout
 instead of `third_party/`. Nothing in the checkout is written to.
 
+## Saturn vector benchmarks (`saturn/benchmarks/`)
+
+55 of Saturn's vector benchmarks (copied from `ucb-ee194-tapeout/saturn-vectors@de04946`, credits and licences
+in `third_party/saturn-vectors/CREDITS.txt` and `NOTICE`), as one Zephyr app: the benchmark is picked with `-DSATURN_BENCH`.
+
+**One benchmark on Spike**
+```
+west build -p always -b chipyard_penguin/penguin saturn/benchmarks -- -DSATURN_BENCH=vec-sgemm
+west build -t run            # exit code 0 = pass; a "stats: mcycle=... minstret=..." line when the benchmark prints it
+```
+**The whole set on Spike** (build + run every benchmark; ~45 s of build each, runs take about a second):
+```
+for b in $(ls third_party/saturn-vectors/benchmarks | grep -E '^vec-|_test'); do
+  west build -p always -b chipyard_penguin/penguin -d build/saturn/$b saturn/benchmarks -- -DSATURN_BENCH=$b >/dev/null &&
+  west build -d build/saturn/$b -t run >build/saturn/$b.log 2>&1; echo "$b rc=$?"
+done
+```
+Expected: 38 pass; `vec-mx-unary` passes only with `zvfofp8min` added to Spike's ISA (`SPIKE_EXTRA_ARGS`); `vec-spmv`, `vec-conjugate-gradient` fail (GCC vtype issue, `known_failures.yaml`); the 14 FP8 /
+bf16-reduction ones trap on Spike by design (`build_only` in `saturn/benchmarks/testcase.yaml`, run them on the FPGA). The
+BSP's `scripts/run_tests.py` reads `testcase.yaml` files only inside the BSP; point it at `saturn/benchmarks/testcase.yaml`
+once it has a `--root` option (proposed).
+
+**For vcu118_ta (FPGA)**: same commands with `-b chipyard_penguin/penguin/vcu118_ta` (Spike also runs these builds);
+load the printed ELF with uart_tsi.
+
+**Good on the bench** (self-checking, Spike-verified, small): `vec-strlen vec-mx-l2norm vec-mx-dotprod vec-mx-rmsnorm
+vec-sgemm-v2 vec-mx-conv1d vec-mx-fma vec-mx-masked-binary vec-conditional vec-mx-unary vec-transpose-load
+vec-transpose-store vec-mixed_width_mask vec-dropout vec-softmax vec-dotprod vec-fft vec-log vec-exp vec-cos
+vec-slide-conv vec-sgemm vec-sgemv vec-conv-3 vec-sgemm-v3 vec-sep-conv-3 vec-igemm` (tag `bench`, in this order = ELF size).
+Not for the bench: `vec-roi-align` (1.8 MB), `vec-jacobi2d`, `vec-fconv3d` (0.5-0.6 MB each). Put the FP8 and bf16-reduction
+programs on the bench only to test those instructions: they are the point of running on hardware, since Spike cannot.
+
 ## Credits and licences
 
 * `third_party/tapeout-chipyard/` is the **Atlas/Saturn team's** work (authors: kellytou, Nicolas Reed, Eric Wen,

@@ -1,5 +1,26 @@
 # SPDX-License-Identifier: Apache-2.0
 # Scenarios expected to fail. The BSP's scripts/run_tests.py (--root = this repo) reports them as
 # XFAIL and flags XPASS when one starts passing: then delete the entry.
-# id = scenario name from sample.yaml/testcase.yaml. Fill in only with a reason; nothing yet.
-known_failures: []
+# id = scenario name from sample.yaml/testcase.yaml. Fill in only with a reason.
+known_failures: list of {id, reason, fixed_by}); id = scenario name in saturn/testcase.yaml.
+# scripts/run_tests.py shows these as XFAIL and flags XPASS when one starts passing: then delete the entry.
+# Merge into the runner's known-failures file, or pass this file with --known-failures.
+known_failures:
+  - id: saturn.vec-spmv
+    reason: >-
+      GCC 14.3 assumes vtype still holds e64m8 after inline asm that changes it (the code
+      relies on how Saturn's older GCC kept vtype), so a later vector instruction runs with the wrong
+      vtype and Spike raises Illegal instruction. The build is fine; the binary is wrong.
+    fixed_by: not fixed. Needs a vsetvli before the affected instruction in the benchmark, or a GCC fix (unreported).
+  - id: saturn.vec-conjugate-gradient
+    reason: >-
+      Same GCC vtype-across-inline-asm problem as saturn.vec-spmv (it calls Ara's spmv/fdotproduct
+      helpers); Illegal instruction on Spike. This benchmark also has no self-check.
+    fixed_by: not fixed (see saturn.vec-spmv)
+  - id: saturn.vec-mx-unary
+    reason: >-
+      Uses zvfofp8min (FP8 widen/narrow conversions) which the board's Spike --isa string does not include,
+      so Spike raises Illegal instruction at the first FP8 instruction. Penguin's riscv,isa does have
+      zvfofp8min, and the benchmark PASSES on Spike with it added (verified).
+    fixed_by: proposed BSP change - add zvfofp8min to SPIKE_ISA_EXTRA in boards/chipyard/chipyard_penguin/board.cmake (not applied)
+

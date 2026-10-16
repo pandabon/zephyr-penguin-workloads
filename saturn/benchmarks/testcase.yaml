@@ -1,0 +1,216 @@
+# SPDX-License-Identifier: Apache-2.0
+# One scenario per Saturn benchmark; every scenario builds saturn/ with -DSATURN_BENCH=<bench>.
+# Both Penguin boards are allowed: the same ELF source runs on Spike for either (same ISA, only
+# console and clock differ). Tags:
+#   saturn            all of these
+#   bench             in the recommended FPGA-bench subset (fast to load, self-checking)
+#   smoke             the program does not check its own result: PASS only means "ran to the end"
+#   (no smoke tag)    the program checks its own result: main() returns non-zero or exits 1 on a mismatch
+#   fp8 / bf16        needs FP8 / bf16 vector instructions Spike does not implement (build_only)
+# build_only scenarios are compiled but not run: Spike traps on the instruction ("Illegal
+# instruction"); run them on the FPGA / chip.
+# Known failures (run, but expected to fail) are listed in known_failures.saturn.yaml.
+common:
+  platform_allow: chipyard_penguin/penguin chipyard_penguin/penguin/vcu118_ta
+  arch_allow: riscv
+  tags: saturn rvv
+tests:
+  saturn.fp16_convert_test:
+    # SMOKE: this program prints numbers but does not compare them with a reference.
+    tags: smoke
+    extra_args: SATURN_BENCH=fp16_convert_test
+  saturn.fp8FMA_test:
+    # BUILD ONLY: FP8 arithmetic / conversion instructions are not implemented by Spike (Illegal instruction); needs the FPGA or chip.
+    build_only: true
+    # SMOKE: this program prints numbers but does not compare them with a reference.
+    tags: smoke fp8
+    extra_args: SATURN_BENCH=fp8FMA_test
+  saturn.fp8_convert2_test:
+    # BUILD ONLY: FP8 arithmetic / conversion instructions are not implemented by Spike (Illegal instruction); needs the FPGA or chip.
+    build_only: true
+    # SMOKE: this program prints numbers but does not compare them with a reference.
+    tags: smoke fp8
+    extra_args: SATURN_BENCH=fp8_convert2_test
+  saturn.fp8_convert_test:
+    # BUILD ONLY: FP8 arithmetic / conversion instructions are not implemented by Spike (Illegal instruction); needs the FPGA or chip.
+    build_only: true
+    # SMOKE: this program prints numbers but does not compare them with a reference.
+    tags: smoke fp8
+    extra_args: SATURN_BENCH=fp8_convert_test
+  saturn.vec-conditional:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-conditional
+  saturn.vec-conjugate-gradient:
+    # KNOWN FAILURE (known_failures.saturn.yaml): GCC 14.3 leaves vtype at e64m8 across inline asm, so Spike traps with Illegal instruction.
+    # Probably a compiler issue; build is fine.
+    tags: smoke
+    extra_args: SATURN_BENCH=vec-conjugate-gradient
+  saturn.vec-conv-3:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-conv-3
+  saturn.vec-cos:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-cos
+  saturn.vec-daxpy:
+    # SMOKE: this program prints numbers but does not compare them with a reference.
+    tags: smoke
+    extra_args: SATURN_BENCH=vec-daxpy
+  saturn.vec-div-approx:
+    # SMOKE: this program prints numbers but does not compare them with a reference.
+    tags: smoke
+    extra_args: SATURN_BENCH=vec-div-approx
+  saturn.vec-dotprod:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-dotprod
+  saturn.vec-dropout:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-dropout
+  saturn.vec-exp:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-exp
+  saturn.vec-fconv2d:
+    extra_args: SATURN_BENCH=vec-fconv2d
+  saturn.vec-fconv3d:
+    extra_args: SATURN_BENCH=vec-fconv3d
+  saturn.vec-fdotprod:
+    # SMOKE: this program prints numbers but does not compare them with a reference.
+    tags: smoke
+    extra_args: SATURN_BENCH=vec-fdotprod
+  saturn.vec-fft:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-fft
+  saturn.vec-fp8:
+    # BUILD ONLY: FP8 arithmetic / conversion instructions are not implemented by Spike (Illegal instruction); needs the FPGA or chip.
+    build_only: true
+    tags: fp8
+    extra_args: SATURN_BENCH=vec-fp8
+  saturn.vec-iconv2d:
+    extra_args: SATURN_BENCH=vec-iconv2d
+  saturn.vec-igemm:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-igemm
+  saturn.vec-jacobi2d:
+    extra_args: SATURN_BENCH=vec-jacobi2d
+  saturn.vec-log:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-log
+  saturn.vec-mixed_width_mask:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-mixed_width_mask
+  saturn.vec-mx-axpy:
+    # BUILD ONLY: FP8 arithmetic / conversion instructions are not implemented by Spike (Illegal instruction); needs the FPGA or chip.
+    build_only: true
+    tags: fp8
+    extra_args: SATURN_BENCH=vec-mx-axpy
+  saturn.vec-mx-bias-add:
+    # BUILD ONLY: FP8 arithmetic / conversion instructions are not implemented by Spike (Illegal instruction); needs the FPGA or chip.
+    build_only: true
+    tags: fp8
+    extra_args: SATURN_BENCH=vec-mx-bias-add
+  saturn.vec-mx-binary:
+    # BUILD ONLY: FP8 arithmetic / conversion instructions are not implemented by Spike (Illegal instruction); needs the FPGA or chip.
+    build_only: true
+    tags: fp8
+    extra_args: SATURN_BENCH=vec-mx-binary
+  saturn.vec-mx-binary-large:
+    # BUILD ONLY: FP8 arithmetic / conversion instructions are not implemented by Spike (Illegal instruction); needs the FPGA or chip.
+    build_only: true
+    tags: fp8
+    extra_args: SATURN_BENCH=vec-mx-binary-large
+  saturn.vec-mx-conv1d:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-mx-conv1d
+  saturn.vec-mx-dotprod:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-mx-dotprod
+  saturn.vec-mx-fma:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-mx-fma
+  saturn.vec-mx-fmacc:
+    # BUILD ONLY: FP8 arithmetic / conversion instructions are not implemented by Spike (Illegal instruction); needs the FPGA or chip.
+    build_only: true
+    tags: fp8
+    extra_args: SATURN_BENCH=vec-mx-fmacc
+  saturn.vec-mx-gemv:
+    # BUILD ONLY: FP8 arithmetic / conversion instructions are not implemented by Spike (Illegal instruction); needs the FPGA or chip.
+    build_only: true
+    tags: fp8
+    extra_args: SATURN_BENCH=vec-mx-gemv
+  saturn.vec-mx-l2norm:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-mx-l2norm
+  saturn.vec-mx-masked-binary:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-mx-masked-binary
+  saturn.vec-mx-matmul:
+    # BUILD ONLY: FP8 arithmetic / conversion instructions are not implemented by Spike (Illegal instruction); needs the FPGA or chip.
+    build_only: true
+    tags: fp8
+    extra_args: SATURN_BENCH=vec-mx-matmul
+  saturn.vec-mx-max-reduction:
+    # BUILD ONLY: bf16 reduction instructions (vfredusum/vfredmax on bf16) are not implemented by Spike; Spike traps with Illegal instruction.
+    build_only: true
+    tags: fp8 bf16
+    extra_args: SATURN_BENCH=vec-mx-max-reduction
+  saturn.vec-mx-reduction-sum:
+    # BUILD ONLY: bf16 reduction instructions (vfredusum/vfredmax on bf16) are not implemented by Spike; Spike traps with Illegal instruction.
+    build_only: true
+    tags: fp8 bf16
+    extra_args: SATURN_BENCH=vec-mx-reduction-sum
+  saturn.vec-mx-rmsnorm:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-mx-rmsnorm
+  saturn.vec-mx-scale:
+    # BUILD ONLY: FP8 arithmetic / conversion instructions are not implemented by Spike (Illegal instruction); needs the FPGA or chip.
+    build_only: true
+    tags: fp8
+    extra_args: SATURN_BENCH=vec-mx-scale
+  saturn.vec-mx-unary:
+    # Runs on Spike only with zvfofp8min in --isa (the chip has it). Known failure until the board's Spike ISA gets it
+    # (SPIKE_ISA_EXTRA in board.cmake); or: SPIKE_EXTRA_ARGS="--isa=<board isa>_zvfofp8min".
+    tags: bench
+    extra_args: SATURN_BENCH=vec-mx-unary
+  saturn.vec-pathfinder:
+    extra_args: SATURN_BENCH=vec-pathfinder
+  saturn.vec-roi-align:
+    extra_args: SATURN_BENCH=vec-roi-align
+  saturn.vec-sep-conv-3:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-sep-conv-3
+  saturn.vec-sgemm:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-sgemm
+  saturn.vec-sgemm-v2:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-sgemm-v2
+  saturn.vec-sgemm-v3:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-sgemm-v3
+  saturn.vec-sgemv:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-sgemv
+  saturn.vec-slide-conv:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-slide-conv
+  saturn.vec-softmax:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-softmax
+  saturn.vec-spmv:
+    # KNOWN FAILURE (known_failures.saturn.yaml): GCC 14.3 leaves vtype at e64m8 across inline asm, so Spike traps with Illegal instruction.
+    # Probably a compiler issue; build is fine.
+    extra_args: SATURN_BENCH=vec-spmv
+  saturn.vec-square-root-approx:
+    # SMOKE: this program prints numbers but does not compare them with a reference.
+    tags: smoke
+    extra_args: SATURN_BENCH=vec-square-root-approx
+  saturn.vec-strlen:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-strlen
+  saturn.vec-tasks:
+    extra_args: SATURN_BENCH=vec-tasks
+  saturn.vec-transpose-load:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-transpose-load
+  saturn.vec-transpose-store:
+    tags: bench
+    extra_args: SATURN_BENCH=vec-transpose-store
