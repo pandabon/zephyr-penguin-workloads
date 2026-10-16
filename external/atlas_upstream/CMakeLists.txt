@@ -11,7 +11,7 @@
 # Build ONE of the Atlas team's host tests straight from their source tree
 # (tapeout-chipyard/tests/*.c), nothing copied:
 #
-#   west build -b chipyard_penguin/penguin samples/atlas_upstream -- \
+#   west build -b chipyard_penguin/penguin external/atlas_upstream -- \
 #       -DATLAS_TEST=saturn_atlas_pause_resume
 #
 # Why not the plain_app core (cmake/plain_app/)? That core compiles every .c in
@@ -22,8 +22,8 @@
 #
 # Variables (all optional except that ATLAS_TEST defaults to the smallest test):
 #   ATLAS_TEST        test name from tests.cmake (the upstream file stem)
-#   TAPEOUT_CHIPYARD  tapeout-chipyard checkout; env var of the same name, else
-#                     $HOME/toolsB/tapeout-chipyard (the course machines' location)
+#   TAPEOUT_CHIPYARD  tapeout-chipyard checkout; -D or the env var of the same name.
+#                     No default location: it must be given.
 # The checkout is only READ. Everything generated (assembled Atlas kernels,
 # golden-data headers) goes into the build directory.
 
@@ -31,13 +31,11 @@ cmake_minimum_required(VERSION 3.20.0)
 
 # ---- locate upstream, pick the test (before find_package: fail early) --------------
 if(NOT TAPEOUT_CHIPYARD)
-  if(DEFINED ENV{TAPEOUT_CHIPYARD})
-    set(TAPEOUT_CHIPYARD "$ENV{TAPEOUT_CHIPYARD}")
-  else()
-    set(TAPEOUT_CHIPYARD "$ENV{HOME}/toolsB/tapeout-chipyard")
-  endif()
+  set(TAPEOUT_CHIPYARD "$ENV{TAPEOUT_CHIPYARD}")
 endif()
-get_filename_component(TAPEOUT_CHIPYARD "${TAPEOUT_CHIPYARD}" ABSOLUTE)
+if(TAPEOUT_CHIPYARD)
+  get_filename_component(TAPEOUT_CHIPYARD "${TAPEOUT_CHIPYARD}" ABSOLUTE)
+endif()
 set(UP_TESTS "${TAPEOUT_CHIPYARD}/tests")
 set(UP_ATLAS "${TAPEOUT_CHIPYARD}/generators/sp26-atlas-acc")
 if(NOT EXISTS "${UP_TESTS}/atlas_mmio.h")

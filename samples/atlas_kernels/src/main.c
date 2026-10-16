@@ -45,7 +45,7 @@
  * Not ported (need generated golden headers / DRAM at 0x9000_0000 / BF16 or
  * FP8 data): tri_phase*, smolvla_compose*, quad_phase_large, pi0_slice,
  * vmem_dram_dual, 8dma_rvv_vmem, fp8_*_bridge, 4rung_2bank_arb, 3way_arb,
- * dmem_sbus_dma (all are listed in samples/atlas_upstream/tests.cmake).
+ * dmem_sbus_dma (all are listed in external/atlas_upstream/tests.cmake).
  *
  * Timing rule copied from upstream: between atlas_start() and the host's
  * concurrent IMEM staging there must be NO printk. UART/HTIF output costs
