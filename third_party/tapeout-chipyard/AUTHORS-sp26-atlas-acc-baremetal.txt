@@ -1,0 +1,341 @@
+# Per-file git authors (plain names, from 'git log --follow --format=%an' in the source repo) of
+# generators/sp26-atlas-acc/baremetal/** at sp26-atlas-acc 2ae0bef209df. Not a licence statement; see NOTICE.
+baremetal/Makefile: Brandon Kim, Jason Tang, bandk1451, jason.tang, kellytou
+baremetal/README.md: Jason Tang, ericwen10, kellytou
+baremetal/agentic/resources/architecture.md: Eric Wen
+baremetal/agentic/resources/baremetal_test_examples.json: Eric Wen, rylee4761
+baremetal/agentic/resources/isa_docs.md: Eric Wen, rylee4761
+baremetal/agentic/resources/isa_docs_new.md: Eric Wen
+baremetal/agentic/resources/optimization_menu.json: Eric Wen
+baremetal/agentic/resources/rules.json: Eric Wen, kellytou, rylee4761
+baremetal/agentic/run_asm_tests.sh: Eric Wen
+baremetal/agentic/verif_buddy.py: Eric Wen, kellytou
+baremetal/assembler.py: Brandon Kim, Eric Wen, Jason Tang, aabel14, ericwen10, jason.tang, kellytou, rylee4761
+baremetal/assembly/alu_basic.S: ericwen10, kellytou, rylee4761
+baremetal/assembly/branch_accel_delay_slots_dma_vpu_xlu.S: Eric Wen, aabel14, kellytou, rylee4761
+baremetal/assembly/branch_delay_slots.S: ericwen10, kellytou, rylee4761
+baremetal/assembly/branch_delay_slots_mxu1_highbank_transpose.S: Eric Wen, aabel14, kellytou, rylee4761
+baremetal/assembly/branch_on_accel_result_two_path_compute.S: Eric Wen, aabel14, jason.tang, kellytou, rylee4761
+baremetal/assembly/csr_scale.S: ericwen10, kellytou, rylee4761
+baremetal/assembly/dma_8_channel_burst.S: aabel14, kellytou, rylee4761
+baremetal/assembly/dma_bank_end_edges.S: kellytou, rylee4761
+baremetal/assembly/dma_compute_control_serialized_pipeline.S: Eric Wen, aabel14, jason.tang, kellytou, rylee4761
+baremetal/assembly/dma_loopback.S: ericwen10, kellytou, rylee4761
+baremetal/assembly/dma_lsu_stall_mixed.S: kellytou, rylee4761
+baremetal/assembly/dma_mixed_direction_burst.S: kellytou, rylee4761
+baremetal/assembly/dma_mixed_transfer_sizes.S: kellytou, rylee4761
+baremetal/assembly/dma_overlap.S: aabel14, kellytou, rylee4761
+baremetal/assembly/dma_reconfig_base.S: kellytou, rylee4761
+baremetal/assembly/dma_reconfig_exhaustive.S: kellytou, rylee4761
+baremetal/assembly/dma_stress.S: ericwen10, kellytou, rylee4761
+baremetal/assembly/dual_mxu_pipeline_vpu.S: aabel14, kellytou, rylee4761
+baremetal/assembly/integ_bank_sweep_vpu_relu_dma.S: aabel14, kellytou, rylee4761
+baremetal/assembly/integ_reduction_recip_pack_branch_scalar.S: Eric Wen, aabel14, kellytou, rylee4761
+baremetal/assembly/integ_xlu_multi_consumer_bank_sweep.S: aabel14, kellytou, rylee4761
+baremetal/assembly/jal_jalr.S: ericwen10, kellytou, rylee4761
+baremetal/assembly/lsu_triple_overlap.S: aabel14, jason.tang, kellytou, rylee4761
+baremetal/assembly/mem_scalar.S: aabel14, ericwen10, kellytou, rylee4761
+baremetal/assembly/mreg_busy_state_rotator_cross_engine.S: Eric Wen, aabel14, kellytou, rylee4761
+baremetal/assembly/mreg_cross_engine_full_rotor.S: Eric Wen, kellytou
+baremetal/assembly/mreg_tracker_full_sweep.S: Eric Wen, aabel14, kellytou, rylee4761
+baremetal/assembly/mreg_upper_bank_sweep_cross_engine.S: Eric Wen, aabel14, kellytou, rylee4761
+baremetal/assembly/mxu0_more_push_pop.S: aabel14, kellytou, rylee4761
+baremetal/assembly/mxu0_push_pop.S: aabel14, ericwen10, kellytou, rylee4761
+baremetal/assembly/mxu0_qk_scores.S: aabel14, ericwen10, kellytou, rylee4761
+baremetal/assembly/mxu0_single_input_tile_bf16.S: aabel14, ericwen10, kellytou, rylee4761
+baremetal/assembly/mxu0_single_output_tile_bf16.S: aabel14, ericwen10, jason.tang, kellytou, rylee4761
+baremetal/assembly/mxu0_single_output_tile_bf16_k96.S: aabel14, ericwen10, jason.tang, kellytou, rylee4761
+baremetal/assembly/mxu1_more_push_pop.S: aabel14, kellytou, rylee4761
+baremetal/assembly/mxu1_push_pop.S: aabel14, ericwen10, kellytou, rylee4761
+baremetal/assembly/mxu1_qk_scores.S: aabel14, ericwen10, kellytou, rylee4761
+baremetal/assembly/mxu1_quant_relu_roundtrip.S: Eric Wen, aabel14, kellytou, rylee4761
+baremetal/assembly/mxu1_single_input_tile_bf16.S: aabel14, ericwen10, kellytou, rylee4761
+baremetal/assembly/mxu1_single_output_tile_bf16.S: aabel14, ericwen10, kellytou, rylee4761
+baremetal/assembly/mxu1_single_output_tile_bf16_k96.S: aabel14, ericwen10, kellytou, rylee4761
+baremetal/assembly/mxu_chain_vpu_reduce.S: aabel14, kellytou, rylee4761
+baremetal/assembly/perf_fused_attention_mxu0.S: aabel14, kellytou
+baremetal/assembly/perf_fused_attention_mxu1.S: aabel14, kellytou
+baremetal/assembly/perf_mm_dual_128x128x128.S: jason.tang, kellytou
+baremetal/assembly/perf_mm_mxu0_64x64x128.S: jason.tang, kellytou
+baremetal/assembly/perf_mm_mxu0_64x64x64.S: aabel14, jason.tang, kellytou, rylee4761
+baremetal/assembly/perf_mm_mxu1_64x64x128.S: jason.tang, kellytou
+baremetal/assembly/perf_mm_mxu1_64x64x64.S: aabel14, jason.tang, kellytou, rylee4761
+baremetal/assembly/perf_mm_single.S: aabel14, jason.tang, kellytou, rylee4761
+baremetal/assembly/perf_softmax.S: aabel14, kellytou, rylee4761
+baremetal/assembly/perf_unary.S: aabel14, kellytou
+baremetal/assembly/perf_vec_layernorm_32x32.S: aabel14, kellytou
+baremetal/assembly/perf_vec_rmsnorm_softmax.S: aabel14, kellytou
+baremetal/assembly/perf_vpu_binary.S: aabel14
+baremetal/assembly/perf_vpu_reduction.S: aabel14
+baremetal/assembly/pw_vpu_overlap_pointwise_pack.S: aabel14, kellytou, rylee4761
+baremetal/assembly/pw_vpu_overlap_reduce_vli.S: aabel14, kellytou, rylee4761
+baremetal/assembly/saturn_atlas_cooperative/sab_a_ecall.S: Nicolas Reed, rylee4761
+baremetal/assembly/saturn_atlas_cooperative/sab_a_to_high.S: Nicolas Reed, rylee4761
+baremetal/assembly/saturn_atlas_cooperative/sab_a_to_zero.S: Nicolas Reed, rylee4761
+baremetal/assembly/saturn_atlas_cooperative/sab_b.S: Nicolas Reed, rylee4761
+baremetal/assembly/saturn_atlas_cooperative/sab_trampoline.S: Nicolas Reed, rylee4761
+baremetal/assembly/saturn_atlas_cooperative/sac_reduction_sum_to_high.S: Nicolas Reed, kellytou, rylee4761
+baremetal/assembly/saturn_atlas_cooperative/sas_4rung_2bank_arb.S: Nicolas Reed, aabel14, kellytou
+baremetal/assembly/saturn_atlas_cooperative/sas_8dma_rvv_vmem.S: Nicolas Reed, kellytou, rylee4761
+baremetal/assembly/saturn_atlas_cooperative/sas_dmem_sbus_dma.S: Nicolas Reed, kellytou, rylee4761
+baremetal/assembly/saturn_atlas_cooperative/sas_vmem_3way_arb.S: Nicolas Reed, kellytou, rylee4761
+baremetal/assembly/saturn_atlas_cooperative/sas_vmem_dram_dual.S: Nicolas Reed, kellytou
+baremetal/assembly/saturn_atlas_cooperative/saturn_atlas_pi0.S: Nicolas Reed, rylee4761
+baremetal/assembly/saturn_atlas_cooperative/saturn_atlas_two_phase.S: Nicolas Reed, rylee4761
+baremetal/assembly/saturn_atlas_cooperative/smolvla_elementwise_add_to_high.S: Nicolas Reed, kellytou, rylee4761
+baremetal/assembly/saturn_atlas_cooperative/smolvla_matmul_mxu1_at_2000.S: Nicolas Reed, kellytou, rylee4761
+baremetal/assembly/saturn_atlas_cooperative/smolvla_matmul_mxu1_to_high.S: Nicolas Reed, kellytou, rylee4761
+baremetal/assembly/saturn_atlas_cooperative/smolvla_reduction_sum_at_2000.S: Nicolas Reed, kellytou, rylee4761
+baremetal/assembly/scalar_isa.S: ericwen10, kellytou, rylee4761
+baremetal/assembly/scalar_subword_high_offsets.S: aabel14, kellytou, rylee4761
+baremetal/assembly/scalar_vector_concurrent.S: aabel14, jason.tang, kellytou, rylee4761
+baremetal/assembly/smolvla_attention.S: Nicolas Reed, aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_elementwise_add.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_elementwise_div.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_elementwise_mul.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_elementwise_sub.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_fused_attention.S: Nicolas Reed, aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_fused_matmul_bias_mxu0.S: Nicolas Reed, aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_fused_matmul_bias_mxu1.S: Nicolas Reed, aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_fused_matmul_bias_v2_mxu0.S: Nicolas Reed, aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_fused_matmul_bias_v2_mxu1.S: Nicolas Reed, aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_fused_norm_scale.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_fused_silu_gate.S: Nicolas Reed, aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_gelu_tanh.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_matmul_k_chain_mxu0.S: Nicolas Reed, aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_matmul_k_chain_mxu1.S: Nicolas Reed, aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_matmul_mxu0.S: Nicolas Reed, aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_matmul_mxu1.S: Nicolas Reed, aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_parameterized_elementwise_add.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_parameterized_elementwise_div.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_parameterized_elementwise_mul.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_parameterized_elementwise_sub.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_parameterized_fused_matmul_bias.S: Nicolas Reed, aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_parameterized_fused_norm_scale.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_parameterized_fused_silu_gate.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_parameterized_gelu_tanh.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_parameterized_matmul.S: Nicolas Reed, aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_parameterized_reduction_sum.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_parameterized_requant.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_parameterized_rms_norm.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_parameterized_rope_frequency.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_parameterized_silu.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_parameterized_softmax.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_reduction_sum.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_requant.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_rms_norm.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_rope_frequency.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_silu.S: aabel14, kellytou, rylee4761
+baremetal/assembly/smolvla_softmax.S: aabel14, kellytou, rylee4761
+baremetal/assembly/triple_unit_concurrent.S: aabel14, kellytou, rylee4761
+baremetal/assembly/vmem_contention_stress.S: aabel14, kellytou, rylee4761
+baremetal/assembly/vpu_binary.S: aabel14, kellytou, rylee4761
+baremetal/assembly/vpu_col_reduce.S: aabel14, kellytou, rylee4761
+baremetal/assembly/vpu_exp_round_edge_blast.S: Eric Wen, kellytou
+baremetal/assembly/vpu_lut_bitflip_megasweep.S: Eric Wen, kellytou
+baremetal/assembly/vpu_lut_octave_oddexp_sweep.S: Eric Wen, kellytou
+baremetal/assembly/vpu_lut_toggle_sweep.S: Nicolas Reed, aabel14, kellytou, rylee4761
+baremetal/assembly/vpu_midbank_recip_sqrt_edge_negimm.S: aabel14, kellytou, rylee4761
+baremetal/assembly/vpu_overlap_lut_pack_reduce.S: Eric Wen, kellytou
+baremetal/assembly/vpu_pack.S: aabel14, kellytou, rylee4761
+baremetal/assembly/vpu_raw_lut_class_stress.S: Eric Wen, kellytou
+baremetal/assembly/vpu_row_reduce.S: aabel14, kellytou, rylee4761
+baremetal/assembly/vpu_same_src.S: aabel14, kellytou, rylee4761
+baremetal/assembly/vpu_special_class_chain_pack.S: Eric Wen, aabel14, jason.tang, kellytou, rylee4761
+baremetal/assembly/vpu_special_math_roundtrip_classes.S: Eric Wen, aabel14, jason.tang, kellytou, rylee4761
+baremetal/assembly/vpu_sqcb_branch_blast.S: Eric Wen, kellytou
+baremetal/assembly/vpu_unary_math.S: aabel14, kellytou, rylee4761
+baremetal/assembly/vpu_unary_simple.S: aabel14, kellytou, rylee4761
+baremetal/assembly/vpu_vli.S: aabel14, kellytou, rylee4761
+baremetal/assembly/xlu_fanout_branch_reuse.S: Eric Wen, aabel14, jason.tang, kellytou, rylee4761
+baremetal/assembly/xlu_transpose.S: aabel14, ericwen10, kellytou, rylee4761
+baremetal/coverage_analyzer.py: Eric Wen, kellytou
+baremetal/generators/gen_branch_on_accel_result_two_path_compute.py: Eric Wen
+baremetal/generators/gen_dma_8_channel_burst.py: kellytou
+baremetal/generators/gen_dma_bank_end_edges.py: kellytou
+baremetal/generators/gen_dma_compute_control_serialized_pipeline.py: Eric Wen
+baremetal/generators/gen_dma_lsu_stall_mixed.py: kellytou
+baremetal/generators/gen_dma_mixed_direction_burst.py: kellytou
+baremetal/generators/gen_dma_mixed_transfer_sizes.py: kellytou
+baremetal/generators/gen_dma_overlap.py: kellytou
+baremetal/generators/gen_dma_reconfig_base.py: kellytou, rylee4761
+baremetal/generators/gen_dma_reconfig_exhaustive.py: kellytou, rylee4761
+baremetal/generators/gen_dma_stress.py: ericwen10, kellytou
+baremetal/generators/gen_dual_mxu_pipeline_vpu.py: kellytou
+baremetal/generators/gen_integ_bank_sweep_vpu_relu_dma.py: kellytou
+baremetal/generators/gen_integ_reduction_recip_pack_branch_scalar.py: Eric Wen
+baremetal/generators/gen_integ_xlu_multi_consumer_bank_sweep.py: kellytou
+baremetal/generators/gen_kernel_header.py: Nicolas Reed
+baremetal/generators/gen_lsu_triple_overlap.py: kellytou
+baremetal/generators/gen_mreg_busy_state_rotator_cross_engine.py: Eric Wen, kellytou
+baremetal/generators/gen_mreg_cross_engine_full_rotor.py: Eric Wen
+baremetal/generators/gen_mreg_tracker_full_sweep.py: Eric Wen
+baremetal/generators/gen_mreg_upper_bank_sweep_cross_engine.py: Eric Wen
+baremetal/generators/gen_mxu0_more_push_pop.py: kellytou
+baremetal/generators/gen_mxu0_push_pop.py: ericwen10, kellytou
+baremetal/generators/gen_mxu0_qk_scores.py: ericwen10, kellytou
+baremetal/generators/gen_mxu0_single_input_tile_bf16.py: ericwen10, kellytou
+baremetal/generators/gen_mxu0_single_output_tile_bf16.py: ericwen10, kellytou
+baremetal/generators/gen_mxu0_single_output_tile_bf16_k96.py: ericwen10, kellytou
+baremetal/generators/gen_mxu1_more_push_pop.py: kellytou
+baremetal/generators/gen_mxu1_push_pop.py: ericwen10, kellytou
+baremetal/generators/gen_mxu1_qk_scores.py: ericwen10, kellytou
+baremetal/generators/gen_mxu1_quant_relu_roundtrip.py: Eric Wen
+baremetal/generators/gen_mxu1_single_input_tile_bf16.py: ericwen10, kellytou
+baremetal/generators/gen_mxu1_single_output_tile_bf16.py: ericwen10, kellytou
+baremetal/generators/gen_mxu1_single_output_tile_bf16_k96.py: ericwen10, kellytou
+baremetal/generators/gen_mxu_chain_vpu_reduce.py: kellytou
+baremetal/generators/gen_mxu_push_pop.py: ericwen10, kellytou
+baremetal/generators/gen_perf_fused_attention_mxu0.py: Nicolas Reed, aabel14, kellytou
+baremetal/generators/gen_perf_fused_attention_mxu1.py: Nicolas Reed, aabel14, kellytou
+baremetal/generators/gen_perf_mm_dual_128x128x128.py: jason.tang
+baremetal/generators/gen_perf_mm_mxu0_64x64x128.py: jason.tang
+baremetal/generators/gen_perf_mm_mxu0_64x64x64.py: jason.tang
+baremetal/generators/gen_perf_mm_mxu1_64x64x128.py: jason.tang
+baremetal/generators/gen_perf_mm_mxu1_64x64x64.py: jason.tang
+baremetal/generators/gen_perf_mm_single.py: jason.tang
+baremetal/generators/gen_perf_softmax.py: aabel14, kellytou
+baremetal/generators/gen_perf_unary.py: aabel14
+baremetal/generators/gen_perf_vec_layernorm_32x32.py: aabel14
+baremetal/generators/gen_perf_vec_rmsnorm_softmax.py: aabel14
+baremetal/generators/gen_pw_vpu_overlap_pointwise_pack.py: kellytou
+baremetal/generators/gen_pw_vpu_overlap_reduce_vli.py: kellytou
+baremetal/generators/gen_saturn_atlas_4rung_2bank_arb.py: Nicolas Reed
+baremetal/generators/gen_saturn_atlas_8dma_rvv_vmem.py: Nicolas Reed
+baremetal/generators/gen_saturn_atlas_dmem_sbus_dma.py: Nicolas Reed
+baremetal/generators/gen_saturn_atlas_fp8_dequant_bridge.py: Nicolas Reed
+baremetal/generators/gen_saturn_atlas_fp8_quantize_bridge.py: Nicolas Reed
+baremetal/generators/gen_saturn_atlas_quad_phase_large.py: Nicolas Reed
+baremetal/generators/gen_saturn_atlas_smolvla_compose.py: Nicolas Reed
+baremetal/generators/gen_saturn_atlas_smolvla_compose_large.py: Nicolas Reed
+baremetal/generators/gen_saturn_atlas_tri_phase.py: Nicolas Reed
+baremetal/generators/gen_saturn_atlas_tri_phase_large.py: Nicolas Reed
+baremetal/generators/gen_saturn_atlas_vmem_3way_arb.py: Nicolas Reed
+baremetal/generators/gen_saturn_atlas_vmem_dram_dual.py: Nicolas Reed
+baremetal/generators/gen_scalar_subword_high_offsets.py: kellytou
+baremetal/generators/gen_scalar_vector_concurrent.py: kellytou
+baremetal/generators/gen_smolvla_attention.py: Nicolas Reed, kellytou
+baremetal/generators/gen_smolvla_elementwise_add.py: kellytou
+baremetal/generators/gen_smolvla_elementwise_div.py: kellytou
+baremetal/generators/gen_smolvla_elementwise_mul.py: kellytou
+baremetal/generators/gen_smolvla_elementwise_sub.py: kellytou
+baremetal/generators/gen_smolvla_fused_attention.py: Nicolas Reed, kellytou
+baremetal/generators/gen_smolvla_fused_matmul_bias_mxu0.py: Nicolas Reed, kellytou
+baremetal/generators/gen_smolvla_fused_matmul_bias_mxu1.py: Nicolas Reed, kellytou
+baremetal/generators/gen_smolvla_fused_matmul_bias_v2_mxu0.py: Nicolas Reed, kellytou
+baremetal/generators/gen_smolvla_fused_matmul_bias_v2_mxu1.py: Nicolas Reed, kellytou
+baremetal/generators/gen_smolvla_fused_norm_scale.py: kellytou
+baremetal/generators/gen_smolvla_fused_silu_gate.py: Nicolas Reed, kellytou
+baremetal/generators/gen_smolvla_gelu_tanh.py: kellytou
+baremetal/generators/gen_smolvla_matmul_k_chain_mxu0.py: Nicolas Reed, kellytou
+baremetal/generators/gen_smolvla_matmul_k_chain_mxu1.py: Nicolas Reed, kellytou
+baremetal/generators/gen_smolvla_matmul_mxu0.py: Nicolas Reed, kellytou
+baremetal/generators/gen_smolvla_matmul_mxu1.py: Nicolas Reed, kellytou
+baremetal/generators/gen_smolvla_parameterized_elementwise_add.py: kellytou
+baremetal/generators/gen_smolvla_parameterized_elementwise_div.py: kellytou
+baremetal/generators/gen_smolvla_parameterized_elementwise_mul.py: kellytou
+baremetal/generators/gen_smolvla_parameterized_elementwise_sub.py: kellytou
+baremetal/generators/gen_smolvla_parameterized_fused_matmul_bias.py: Nicolas Reed, kellytou
+baremetal/generators/gen_smolvla_parameterized_fused_norm_scale.py: kellytou
+baremetal/generators/gen_smolvla_parameterized_fused_silu_gate.py: kellytou
+baremetal/generators/gen_smolvla_parameterized_gelu_tanh.py: kellytou
+baremetal/generators/gen_smolvla_parameterized_matmul.py: Nicolas Reed, kellytou
+baremetal/generators/gen_smolvla_parameterized_reduction_sum.py: kellytou
+baremetal/generators/gen_smolvla_parameterized_requant.py: kellytou
+baremetal/generators/gen_smolvla_parameterized_rms_norm.py: kellytou
+baremetal/generators/gen_smolvla_parameterized_rope_frequency.py: kellytou
+baremetal/generators/gen_smolvla_parameterized_silu.py: kellytou
+baremetal/generators/gen_smolvla_parameterized_softmax.py: kellytou
+baremetal/generators/gen_smolvla_reduction_sum.py: kellytou
+baremetal/generators/gen_smolvla_requant.py: kellytou
+baremetal/generators/gen_smolvla_rms_norm.py: kellytou
+baremetal/generators/gen_smolvla_rope_frequency.py: kellytou
+baremetal/generators/gen_smolvla_silu.py: kellytou
+baremetal/generators/gen_smolvla_softmax.py: kellytou
+baremetal/generators/gen_triple_unit_concurrent.py: kellytou
+baremetal/generators/gen_utils.py: ericwen10, kellytou
+baremetal/generators/gen_vmem_contention_stress.py: kellytou
+baremetal/generators/gen_vpu_binary.py: kellytou
+baremetal/generators/gen_vpu_col_reduce.py: kellytou
+baremetal/generators/gen_vpu_exp_round_edge_blast.py: Eric Wen
+baremetal/generators/gen_vpu_lut_bitflip_megasweep.py: Eric Wen
+baremetal/generators/gen_vpu_lut_octave_oddexp_sweep.py: Eric Wen
+baremetal/generators/gen_vpu_lut_toggle_sweep.py: Nicolas Reed
+baremetal/generators/gen_vpu_midbank_recip_sqrt_edge_negimm.py: kellytou
+baremetal/generators/gen_vpu_overlap_lut_pack_reduce.py: Eric Wen
+baremetal/generators/gen_vpu_pack.py: kellytou
+baremetal/generators/gen_vpu_raw_lut_class_stress.py: Eric Wen
+baremetal/generators/gen_vpu_row_reduce.py: kellytou
+baremetal/generators/gen_vpu_same_src.py: kellytou
+baremetal/generators/gen_vpu_special_class_chain_pack.py: Eric Wen
+baremetal/generators/gen_vpu_special_math_roundtrip_classes.py: Eric Wen, kellytou
+baremetal/generators/gen_vpu_sqcb_branch_blast.py: Eric Wen
+baremetal/generators/gen_vpu_unary_math.py: kellytou
+baremetal/generators/gen_vpu_unary_simple.py: kellytou
+baremetal/generators/gen_vpu_vli.py: kellytou
+baremetal/generators/gen_xlu_fanout_branch_reuse.py: Eric Wen, kellytou
+baremetal/generators/mxu_fp8_utils.py: kellytou
+baremetal/generators/software_models/mxu0_sa/__init__.py: ericwen10, kellytou
+baremetal/generators/software_models/mxu0_sa/converters.h: ericwen10, kellytou
+baremetal/generators/software_models/mxu0_sa/fp_formats.h: ericwen10, kellytou
+baremetal/generators/software_models/mxu0_sa/inner_product_trees_model.h: ericwen10, kellytou
+baremetal/generators/software_models/mxu0_sa/params_and_requests.h: ericwen10, kellytou
+baremetal/generators/software_models/mxu0_sa/sa_linear.h: ericwen10, kellytou
+baremetal/generators/software_models/mxu0_sa/systolic_array_linear.h: ericwen10, kellytou
+baremetal/generators/software_models/mxu0_sa/systolic_array_model.h: ericwen10, kellytou
+baremetal/generators/software_models/mxu0_sa/systolic_array_rtl_linear.py: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/__init__.py: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/_numba_kernels.py: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/converters.py: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/fp_formats.py: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/ipt_c/__init__.py: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/ipt_c/converters.h: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/ipt_c/converters.py: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/ipt_c/fp_formats.h: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/ipt_c/fp_formats.py: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/ipt_c/inner_product_trees_model.h: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/ipt_c/ipt_linear.h: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/ipt_c/ipt_rtl_linear_c.py: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/ipt_c/params_and_requests.h: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/ipt_c/params_and_requests.py: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/ipt_rtl_linear.py: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/params_and_requests.py: ericwen10, kellytou
+baremetal/generators/software_models/mxu1_ipt/test_functional_vs_rtl.py: ericwen10, kellytou
+baremetal/generators/software_models/vpu/__init__.py: ericwen10, kellytou
+baremetal/generators/software_models/vpu/bf16_utils.py: kellytou
+baremetal/generators/software_models/vpu/fp8_e4m3.py: kellytou
+baremetal/generators/software_models/vpu/gen_vectors.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/__init__.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/add_sub_sum_vec.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/col_add_vec.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/exp.py: Nicolas Reed, kellytou
+baremetal/generators/software_models/vpu/lane_boxes/fp8_pack.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/fp8_unpack.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/log.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/mov.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/mul_rec.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/pair_wise_max.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/pair_wise_min.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/rcp.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/relu.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/row_max.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/row_min.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/sin_cos_vec.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/sqrt.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/square_cube_vec.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/tanh_rec.py: kellytou
+baremetal/generators/software_models/vpu/lane_boxes/vector_load_imm.py: kellytou
+baremetal/generators/software_models/vpu/lut_sources/__init__.py: kellytou
+baremetal/generators/software_models/vpu/lut_sources/lut_params.py: kellytou
+baremetal/generators/software_models/vpu/lut_sources/lut_tables.py: kellytou
+baremetal/generators/software_models/vpu/vector_engine_model.py: Nicolas Reed, kellytou
+baremetal/generators/software_models/vpu/vector_params.py: kellytou
+baremetal/generators/software_models/vpu/vector_rtl_forward.py: kellytou
+baremetal/generators/software_models/vpu/vpu_op.py: kellytou
+baremetal/generators/software_models/vpu/vpu_vector_file.py: kellytou
+baremetal/generators/vpu_gen_utils.py: kellytou
+baremetal/generators/vpu_overlap_pairwise_common.py: kellytou, rylee4761
+baremetal/master_wavier.el: Eric Wen
+baremetal/scripts/status.sh: jason.tang
+baremetal/scripts/summary.pl: jason.tang
+baremetal/tests/CMakeLists.txt: Jason Tang, ericwen10, jason.tang

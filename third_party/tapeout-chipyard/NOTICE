@@ -46,6 +46,8 @@ ericwen10 is Eric Wen, nicorakela is Nicolas Rakela / Herrera):
         kellytou, Nicolas Reed, ericwen10
   .../baremetal/generators/software_models/
         kellytou, Nicolas Reed, ericwen10
+  .../baremetal/ (rest of the tree: assembly/*.S, generators/gen_*.py, tests/, scripts/, agentic/,
+        Makefile, README.md, ...): see AUTHORS-sp26-atlas-acc-baremetal.txt (per file)
   .../dependencies/fpex/model/bf16_exp_model.py   Shashank Anand
 
 Licences
@@ -56,11 +58,22 @@ Licences
   (keep the copyright notice, the conditions and the disclaimer) are met by
   keeping that file next to the sources.
 
-* generators/sp26-atlas-acc/ : the sp26-atlas-acc repository has NO licence
-  file, and neither does the copied fpex file. No licence is granted to us in
-  writing. These files are here only because this repository is PRIVATE and
-  for the team's own bring-up. Before ANY publication of this repository
-  they must be cleared with the Atlas team (or removed and fetched from the
-  team's checkout through TAPEOUT_CHIPYARD instead).
+* generators/sp26-atlas-acc/baremetal/ (the whole tree, 339 files, imported verbatim from the
+  tapeout pin 2ae0bef209df): the sp26-atlas-acc repository has NO licence file at that pin.
+  However, the public atlas-npu repository (bringup-chipyard/generators/atlas-npu @
+  0079c0541111197741a231c002e3843fa6f545b2) HAS a LICENSE (BSD 3-Clause, Copyright (c) 2026
+  The Regents of the University of California), and its baremetal/ directory is
+  byte-identical to the one copied here (`diff -r` over all 339 tracked files: no
+  difference). Its text is the file LICENSE.atlas-npu in this folder. So the baremetal/ files
+  are available under that BSD 3-Clause licence (as published in atlas-npu); it is the
+  maintainers' reading that the tapeout copy, being the same files, carries the same terms.
+  Redistribution conditions are met by keeping LICENSE.atlas-npu next to the sources.
+  Per-file authors: AUTHORS-sp26-atlas-acc-baremetal.txt.
+
+* generators/sp26-atlas-acc/dependencies/fpex/model/bf16_exp_model.py: from the separate
+  fpex repository (ab0cf6f5b0690538f9ebb1d6af46f7caf97837d4), which has no licence file here;
+  atlas-npu's LICENSE does NOT cover it (it is its own submodule there too; the file is
+  identical to atlas-npu's checkout of fpex, but that is not a grant). Clear it with the Atlas
+  team before any publication of this repository.
 
 Nothing here is edited. If a file must change, change it upstream and re-copy.

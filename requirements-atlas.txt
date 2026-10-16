@@ -1,0 +1,10 @@
+# Opt-in Python deps for generating golden data of the Atlas tests (atlas/isa, atlas/upstream torch tests).
+# Create the venv inside the repo (gitignored) and install CPU-only torch from the PyTorch CPU index:
+#   uv venv .venv --python 3.12
+#   uv pip install --python .venv/bin/python -r requirements-atlas.txt
+# (the --index-url line below is read by uv/pip; torch's "+cpu" build avoids pulling ~4 GB of CUDA wheels)
+--index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://pypi.org/simple
+numpy
+numba
+torch==2.14.1+cpu
