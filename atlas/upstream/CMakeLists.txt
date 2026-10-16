@@ -11,7 +11,7 @@
 # Build ONE of the Atlas team's host tests straight from their source tree
 # (tapeout-chipyard/tests/*.c), nothing copied:
 #
-#   west build -b chipyard_penguin/penguin external/atlas_upstream -- \
+#   west build -b chipyard_penguin/penguin atlas/upstream -- \
 #       -DATLAS_TEST=saturn_atlas_pause_resume
 #
 # Why not the plain_app core (cmake/plain_app/)? That core compiles every .c in
