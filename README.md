@@ -122,7 +122,7 @@ for b in $(ls third_party/saturn-vectors/benchmarks | grep -E '^vec-|_test'); do
   west build -d build/saturn/$b -t run >build/saturn/$b.log 2>&1; echo "$b rc=$?"
 done
 ```
-Expected: 38 pass; `vec-mx-unary` passes only with `zvfofp8min` added to Spike's ISA (`SPIKE_EXTRA_ARGS`); `vec-spmv`, `vec-conjugate-gradient` fail (GCC vtype issue, `known_failures.yaml`); the 14 FP8 /
+Expected: 39 pass (`vec-mx-unary` too, since the BSP's Spike ISA includes `zvfofp8min`, BSP cfdcd0f); `vec-spmv`, `vec-conjugate-gradient` fail (GCC vtype issue, `known_failures.yaml`); the 14 FP8 /
 bf16-reduction ones trap on Spike by design (`build_only` in `saturn/benchmarks/testcase.yaml`, run them on the FPGA). The
 BSP's `scripts/run_tests.py` reads `testcase.yaml` files only inside the BSP; point it at `saturn/benchmarks/testcase.yaml`
 once it has a `--root` option (proposed).

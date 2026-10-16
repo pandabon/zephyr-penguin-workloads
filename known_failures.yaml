@@ -17,10 +17,3 @@ known_failures:
       Same GCC vtype-across-inline-asm problem as saturn.vec-spmv (it calls Ara's spmv/fdotproduct
       helpers); Illegal instruction on Spike. This benchmark also has no self-check.
     fixed_by: not fixed (see saturn.vec-spmv)
-  - id: saturn.vec-mx-unary
-    reason: >-
-      Uses zvfofp8min (FP8 widen/narrow conversions) which the board's Spike --isa string does not include,
-      so Spike raises Illegal instruction at the first FP8 instruction. Penguin's riscv,isa does have
-      zvfofp8min, and the benchmark PASSES on Spike with it added (verified).
-    fixed_by: proposed BSP change - add zvfofp8min to SPIKE_ISA_EXTRA in boards/chipyard/chipyard_penguin/board.cmake (not applied)
-

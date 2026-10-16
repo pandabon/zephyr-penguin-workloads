@@ -166,8 +166,7 @@ tests:
     tags: fp8
     extra_args: SATURN_BENCH=vec-mx-scale
   saturn.vec-mx-unary:
-    # Runs on Spike only with zvfofp8min in --isa (the chip has it). Known failure until the board's Spike ISA gets it
-    # (SPIKE_ISA_EXTRA in board.cmake); or: SPIKE_EXTRA_ARGS="--isa=<board isa>_zvfofp8min".
+    # Needs zvfofp8min in Spike's --isa (the chip has it): the BSP adds it via SPIKE_ISA_EXTRA since cfdcd0f.
     tags: bench
     extra_args: SATURN_BENCH=vec-mx-unary
   saturn.vec-pathfinder:
