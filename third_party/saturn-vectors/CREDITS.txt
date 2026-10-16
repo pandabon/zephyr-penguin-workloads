@@ -1,0 +1,283 @@
+CREDITS for saturn/ (Saturn vector benchmarks, copied into penguin-workloads)
+=============================================================================
+
+Origin of the copied benchmark sources (copied, not modified):
+  repo   : ucb-ee194-tapeout/saturn-vectors  (git@github.com:ucb-ee194-tapeout/saturn-vectors.git)
+  commit : de04946ac1ce878c79a4d6e74e493c5f440908e2  (Thu Apr 23 2026, "fix benchmark compilation issues")
+  path   : benchmarks/   (read via tapeout-chipyard @ 48c3a7d11f6de3f0cecb33ae6a31c24ec26ff9d8,
+           submodule generators/saturn)
+  licence: BSD-3-Clause, Copyright (c) 2024 The Regents of the University of California
+           (see LICENSE). Third-party code inside it keeps its own licence: see NOTICE.
+
+Origin of benchmarks/env/{encoding.h,LICENSE}:
+  repo   : riscv/riscv-test-env  (https://github.com/riscv/riscv-test-env.git), a submodule of
+           saturn-vectors at benchmarks/env, commit 1c577dc7c7d6aee27b8d5cb0e2e87c8473e3ad12
+  encoding.h itself says: BSD-3-Clause, Copyright (c) 2023 RISC-V International, generated from
+           riscv/riscv-opcodes (02b4866).
+
+What was left out of the copy: the 14 OPU/custom-matrix benchmarks (opu-*, vec-bdot, vec-optest;
+the Penguin chip has no OPU), the upstream Makefile and run script, common/{crt.S,syscalls.c,test.ld}
+(Saturn's own startup/HTIF, replaced by Zephyr), env/{p,pm,pt,v} (test environments), and the
+prebuilt x86 binary vec-fp8/gen_data.
+
+Files of ours (not from Saturn), all in shim/, conf/, CMakeLists.txt, prj.conf, testcase.yaml:
+  shim/stats_shim.c   re-implements setStats() from saturn-vectors benchmarks/common/syscalls.c
+                      @ de04946 (original authors of that file: dpgrubb13)
+  shim/exit_shim.c    same code as cmake/plain_app/exit_shim.c of our BSP (zephyr-chipyard-bsp)
+  shim/include/driver/rocket-chip/l_trace_encoder/l_trace_encoder.h
+                      no-op stub of a driver header that Saturn's sources include but that lives
+                      outside saturn-vectors (baremetal-ide); only the declarations the benchmarks use.
+  build structure     modelled on external/atlas_upstream of zephyr-chipyard-bsp (ATLAS_TEST pattern).
+
+Per-file authors
+----------------
+Names are the git author names from `git -C generators/saturn log --follow --format='%an' -- <file>`
+at the commit above, most commits first. Paths are relative to saturn/ here and to
+saturn-vectors/ upstream (identical).
+Generated files (data.S) are produced by the gen_data.* scripts next to them; their authors are those
+of the generator history as listed.
+
+
+benchmarks/bin2fp8.py: katiechampion
+benchmarks/common-data-gen/mx_data_gen.c: Zander Denning
+benchmarks/common-data-gen/mx_data_gen.h: Zander Denning
+benchmarks/common/ara/exp.h: Jerry Zhao
+benchmarks/common/ara/fdotproduct.c: Jerry Zhao
+benchmarks/common/ara/fdotproduct.h: Jerry Zhao
+benchmarks/common/ara/gemv.c: Jerry Zhao
+benchmarks/common/ara/gemv.h: Jerry Zhao
+benchmarks/common/ara/rivec/vector_defines.h: Jerry Zhao
+benchmarks/common/ara/spmv.c: Jerry Zhao
+benchmarks/common/ara/spmv.h: Jerry Zhao
+benchmarks/common/ara/util.c: Jerry Zhao
+benchmarks/common/ara/util.h: Jerry Zhao
+benchmarks/common/bme.h: katiechampion
+benchmarks/common/rvv_mx.h: katiechampion, Zander Denning
+benchmarks/common/util.h: katiechampion, dpgrubb13
+benchmarks/data.S: katiechampion
+benchmarks/fp16_convert_test.c: katiechampion
+benchmarks/fp8FMA.py: katiechampion
+benchmarks/fp8FMA_test.c: katiechampion
+benchmarks/fp8_convert2_test.c: katiechampion
+benchmarks/fp8_convert_test.c: katiechampion
+benchmarks/fp8_converter.py: katiechampion
+benchmarks/utasks/utasks.h: Jerry Zhao, Sebastian Silva
+benchmarks/vec-conditional/conditional_gendata.pl: Class Account
+benchmarks/vec-conditional/dataset1.h: Class Account
+benchmarks/vec-conditional/vec-conditional.S: Class Account
+benchmarks/vec-conditional/vec-conditional_main.c: katiechampion, Class Account
+benchmarks/vec-conjugate-gradient/data.S: Jerry Zhao
+benchmarks/vec-conjugate-gradient/gen_data.py: Jerry Zhao
+benchmarks/vec-conjugate-gradient/main.c: Jerry Zhao, katiechampion
+benchmarks/vec-conv-3/dataset1.h: dpgrubb13
+benchmarks/vec-conv-3/gendata.py: dpgrubb13, Jerry Zhao
+benchmarks/vec-conv-3/vec-conv.S: dpgrubb13
+benchmarks/vec-conv-3/vec-conv_main.c: katiechampion, dpgrubb13
+benchmarks/vec-cos/cos.c: Jerry Zhao
+benchmarks/vec-cos/cos.h: Jerry Zhao
+benchmarks/vec-cos/data.S: Jerry Zhao
+benchmarks/vec-cos/gen_data.py: Jerry Zhao
+benchmarks/vec-cos/main.c: Jerry Zhao, katiechampion
+benchmarks/vec-daxpy/main.cc: katiechampion, Jerry Zhao
+benchmarks/vec-div-approx/dataset1.h: Jerry Zhao, Class Account
+benchmarks/vec-div-approx/div_approx_gendata.pl: Class Account
+benchmarks/vec-div-approx/vec-div_approx.S: Jerry Zhao, Class Account
+benchmarks/vec-div-approx/vec-div_approx_main.c: katiechampion, Jerry Zhao, Class Account
+benchmarks/vec-dotprod/data.S: Jerry Zhao
+benchmarks/vec-dotprod/dotproduct.c: Jerry Zhao
+benchmarks/vec-dotprod/dotproduct.h: Jerry Zhao
+benchmarks/vec-dotprod/gen_data.py: Jerry Zhao
+benchmarks/vec-dotprod/main.c: katiechampion, Jerry Zhao
+benchmarks/vec-dropout/data.S: Jerry Zhao
+benchmarks/vec-dropout/dropout.c: Jerry Zhao
+benchmarks/vec-dropout/dropout.h: Jerry Zhao
+benchmarks/vec-dropout/gen_data.py: Jerry Zhao
+benchmarks/vec-dropout/main.c: katiechampion, Jerry Zhao
+benchmarks/vec-exp/data.S: Jerry Zhao
+benchmarks/vec-exp/exp.c: Jerry Zhao
+benchmarks/vec-exp/gen_data.py: Jerry Zhao
+benchmarks/vec-exp/main.c: Jerry Zhao, katiechampion
+benchmarks/vec-fconv2d/data.S: Jerry Zhao
+benchmarks/vec-fconv2d/fconv2d.h: Jerry Zhao
+benchmarks/vec-fconv2d/fconv2d_3x3.c: Jerry Zhao
+benchmarks/vec-fconv2d/fconv2d_7x7.c: Jerry Zhao
+benchmarks/vec-fconv2d/gen_data.py: Jerry Zhao
+benchmarks/vec-fconv2d/main.c: Jerry Zhao, katiechampion
+benchmarks/vec-fconv3d/data.S: Jerry Zhao
+benchmarks/vec-fconv3d/fconv3d.h: Jerry Zhao
+benchmarks/vec-fconv3d/fconv3d_3x7x7.c: Jerry Zhao
+benchmarks/vec-fconv3d/gen_data.py: Jerry Zhao
+benchmarks/vec-fconv3d/main.c: Jerry Zhao, katiechampion
+benchmarks/vec-fdotprod/data.S: Jerry Zhao
+benchmarks/vec-fdotprod/gen_data.py: Jerry Zhao
+benchmarks/vec-fdotprod/main.c: katiechampion, Jerry Zhao
+benchmarks/vec-fft/dataset1.h: Jerry Zhao
+benchmarks/vec-fft/fft2.h: Jerry Zhao
+benchmarks/vec-fft/fft2_gendata.py: Jerry Zhao
+benchmarks/vec-fft/fft2_main.c: Jerry Zhao, katiechampion, Nicolas Rakela Herrera, dpgrubb13
+benchmarks/vec-fft/vec-fft2.c: Jerry Zhao
+benchmarks/vec-fp8/data.S: katiechampion
+benchmarks/vec-fp8/gen_data.cpp: katiechampion
+benchmarks/vec-fp8/main.c: katiechampion
+benchmarks/vec-iconv2d/data.S: Jerry Zhao
+benchmarks/vec-iconv2d/gen_data.py: Jerry Zhao
+benchmarks/vec-iconv2d/iconv2d.h: Jerry Zhao
+benchmarks/vec-iconv2d/iconv2d_3x3.c: Jerry Zhao
+benchmarks/vec-iconv2d/iconv2d_5x5.c: Jerry Zhao
+benchmarks/vec-iconv2d/iconv2d_7x7.c: Jerry Zhao
+benchmarks/vec-iconv2d/main.c: Jerry Zhao, katiechampion
+benchmarks/vec-igemm/data.S: Jerry Zhao
+benchmarks/vec-igemm/gen_data.py: Jerry Zhao
+benchmarks/vec-igemm/imatmul.c: Jerry Zhao
+benchmarks/vec-igemm/imatmul.h: Jerry Zhao
+benchmarks/vec-igemm/main.c: katiechampion, Jerry Zhao
+benchmarks/vec-jacobi2d/data.S: Jerry Zhao
+benchmarks/vec-jacobi2d/gen_data.py: Jerry Zhao
+benchmarks/vec-jacobi2d/jacobi2d.c: Jerry Zhao
+benchmarks/vec-jacobi2d/jacobi2d.h: Jerry Zhao
+benchmarks/vec-jacobi2d/main.c: Jerry Zhao, katiechampion
+benchmarks/vec-log/data.S: Jerry Zhao
+benchmarks/vec-log/gen_data.py: Jerry Zhao
+benchmarks/vec-log/log.c: Jerry Zhao
+benchmarks/vec-log/log.h: Jerry Zhao
+benchmarks/vec-log/main.c: katiechampion, Jerry Zhao
+benchmarks/vec-mixed_width_mask/dataset1.h: Class Account
+benchmarks/vec-mixed_width_mask/mixed_with_mask_gendata.pl: Class Account
+benchmarks/vec-mixed_width_mask/vec-mixed_width_mask.S: hugo.teng, Class Account
+benchmarks/vec-mixed_width_mask/vec-mixed_width_mask_main.c: katiechampion, dpgrubb13, Class Account, Jerry Zhao
+benchmarks/vec-mx-axpy/data.S: katiechampion
+benchmarks/vec-mx-axpy/gen_data/gen_data.c: katiechampion
+benchmarks/vec-mx-axpy/gen_data/gen_data.sh: katiechampion, Zander Denning
+benchmarks/vec-mx-axpy/main.c: katiechampion
+benchmarks/vec-mx-bias-add/data.S: katiechampion
+benchmarks/vec-mx-bias-add/gen_data/gen_data.c: katiechampion
+benchmarks/vec-mx-bias-add/gen_data/gen_data.sh: katiechampion, Zander Denning
+benchmarks/vec-mx-bias-add/main.c: katiechampion, Nicolas Rakela Herrera
+benchmarks/vec-mx-binary-large/data.S: Zander Denning, katiechampion
+benchmarks/vec-mx-binary-large/gen_data/gen_data.c: katiechampion, Zander Denning
+benchmarks/vec-mx-binary-large/gen_data/gen_data.sh: katiechampion, Zander Denning
+benchmarks/vec-mx-binary-large/main.c: katiechampion, Nicolas Rakela Herrera, Zander Denning
+benchmarks/vec-mx-binary/data.S: Zander Denning
+benchmarks/vec-mx-binary/gen_data/gen_data.c: Zander Denning
+benchmarks/vec-mx-binary/gen_data/gen_data.sh: Zander Denning
+benchmarks/vec-mx-binary/main.c: katiechampion, Nicolas Rakela Herrera, Zander Denning
+benchmarks/vec-mx-conv1d/data.S: katiechampion
+benchmarks/vec-mx-conv1d/gen_data/gen_data.c: katiechampion
+benchmarks/vec-mx-conv1d/gen_data/gen_data.sh: katiechampion, Zander Denning
+benchmarks/vec-mx-conv1d/main.c: katiechampion, Nicolas Rakela Herrera
+benchmarks/vec-mx-dotprod/data.S: katiechampion
+benchmarks/vec-mx-dotprod/gen_data/gen_data.c: katiechampion
+benchmarks/vec-mx-dotprod/gen_data/gen_data.sh: katiechampion, Zander Denning
+benchmarks/vec-mx-dotprod/main.c: katiechampion, Nicolas Rakela Herrera
+benchmarks/vec-mx-fma/data.S: katiechampion
+benchmarks/vec-mx-fma/gen_data.cpp: katiechampion
+benchmarks/vec-mx-fma/gen_data.sh: katiechampion
+benchmarks/vec-mx-fma/main.c: katiechampion, Nicolas Rakela Herrera
+benchmarks/vec-mx-fma/rvv_mx.h: katiechampion
+benchmarks/vec-mx-fmacc/data.S: katiechampion
+benchmarks/vec-mx-fmacc/gen_data/gen_data.c: katiechampion
+benchmarks/vec-mx-fmacc/gen_data/gen_data.sh: katiechampion, Zander Denning
+benchmarks/vec-mx-fmacc/main.c: katiechampion, Nicolas Rakela Herrera
+benchmarks/vec-mx-gemv/data.S: katiechampion
+benchmarks/vec-mx-gemv/gen_data/gen_data.c: katiechampion
+benchmarks/vec-mx-gemv/gen_data/gen_data.sh: katiechampion, Zander Denning
+benchmarks/vec-mx-gemv/main.c: katiechampion, Nicolas Rakela Herrera
+benchmarks/vec-mx-l2norm/data.S: katiechampion
+benchmarks/vec-mx-l2norm/gen_data/gen_data.c: katiechampion
+benchmarks/vec-mx-l2norm/gen_data/gen_data.sh: katiechampion
+benchmarks/vec-mx-l2norm/main.c: katiechampion, Nicolas Rakela Herrera
+benchmarks/vec-mx-masked-binary/data.S: katiechampion
+benchmarks/vec-mx-masked-binary/gen_data/gen_data.c: katiechampion
+benchmarks/vec-mx-masked-binary/gen_data/gen_data.sh: katiechampion, Zander Denning
+benchmarks/vec-mx-masked-binary/main.c: katiechampion, Nicolas Rakela Herrera
+benchmarks/vec-mx-matmul/data.S: Zander Denning
+benchmarks/vec-mx-matmul/gen_data/gen_data.c: Zander Denning
+benchmarks/vec-mx-matmul/gen_data/gen_data.sh: Zander Denning
+benchmarks/vec-mx-matmul/main.c: katiechampion, Zander Denning
+benchmarks/vec-mx-max-reduction/data.S: katiechampion
+benchmarks/vec-mx-max-reduction/gen_data/gen_data.c: katiechampion
+benchmarks/vec-mx-max-reduction/gen_data/gen_data.sh: katiechampion, Zander Denning
+benchmarks/vec-mx-max-reduction/main.c: katiechampion, Nicolas Rakela Herrera
+benchmarks/vec-mx-reduction-sum/data.S: katiechampion
+benchmarks/vec-mx-reduction-sum/gen_data/gen_data.c: katiechampion
+benchmarks/vec-mx-reduction-sum/gen_data/gen_data.sh: katiechampion, Zander Denning
+benchmarks/vec-mx-reduction-sum/main.c: katiechampion
+benchmarks/vec-mx-rmsnorm/data.S: katiechampion
+benchmarks/vec-mx-rmsnorm/gen_data/gen_data.c: katiechampion
+benchmarks/vec-mx-rmsnorm/gen_data/gen_data.sh: katiechampion
+benchmarks/vec-mx-rmsnorm/main.c: katiechampion, Nicolas Rakela Herrera
+benchmarks/vec-mx-scale/data.S: katiechampion
+benchmarks/vec-mx-scale/gen_data/gen_data.c: katiechampion
+benchmarks/vec-mx-scale/gen_data/gen_data.sh: katiechampion, Zander Denning
+benchmarks/vec-mx-scale/main.c: katiechampion, Nicolas Rakela Herrera
+benchmarks/vec-mx-unary/data.S: Zander Denning
+benchmarks/vec-mx-unary/gen_data/gen_data.c: Zander Denning
+benchmarks/vec-mx-unary/gen_data/gen_data.sh: Zander Denning
+benchmarks/vec-mx-unary/main.c: katiechampion, Nicolas Rakela Herrera, Zander Denning
+benchmarks/vec-pathfinder/LICENSE_0: Jerry Zhao
+benchmarks/vec-pathfinder/LICENSE_1: Jerry Zhao
+benchmarks/vec-pathfinder/data.S: Jerry Zhao
+benchmarks/vec-pathfinder/gen_data.py: Jerry Zhao
+benchmarks/vec-pathfinder/main.c: Jerry Zhao, katiechampion
+benchmarks/vec-pathfinder/pathfinder.c: Jerry Zhao
+benchmarks/vec-pathfinder/pathfinder.h: Jerry Zhao
+benchmarks/vec-roi-align/data.S: Jerry Zhao
+benchmarks/vec-roi-align/gen_data.py: Jerry Zhao
+benchmarks/vec-roi-align/main.c: katiechampion, Jerry Zhao
+benchmarks/vec-roi-align/roi_align.c: Jerry Zhao
+benchmarks/vec-roi-align/roi_align.h: Jerry Zhao
+benchmarks/vec-sep-conv-3/dataset1.h: Jerry Zhao
+benchmarks/vec-sep-conv-3/gendata.py: Jerry Zhao, dpgrubb13
+benchmarks/vec-sep-conv-3/vec-sep-conv.S: dpgrubb13
+benchmarks/vec-sep-conv-3/vec-sep-conv_main.c: katiechampion, Jerry Zhao, dpgrubb13
+benchmarks/vec-sgemm-v2/dataset1.h: dpgrubb13
+benchmarks/vec-sgemm-v2/gendata.py: dpgrubb13
+benchmarks/vec-sgemm-v2/vec-sgemm.S: dpgrubb13
+benchmarks/vec-sgemm-v2/vec-sgemm_main.c: katiechampion, dpgrubb13, Jerry Zhao
+benchmarks/vec-sgemm-v3/dataset1.h: Jerry Zhao, dpgrubb13
+benchmarks/vec-sgemm-v3/gendata.py: dpgrubb13
+benchmarks/vec-sgemm-v3/vec-sgemm.S: dpgrubb13
+benchmarks/vec-sgemm-v3/vec-sgemm_main.c: Jerry Zhao, katiechampion, dpgrubb13, Nicolas Rakela
+benchmarks/vec-sgemm/dataset1.h: Jerry Zhao, dpgrubb13
+benchmarks/vec-sgemm/gendata.py: dpgrubb13, Jerry Zhao
+benchmarks/vec-sgemm/vec-sgemm.S: dpgrubb13
+benchmarks/vec-sgemm/vec-sgemm_main.c: katiechampion, Jerry Zhao, dpgrubb13
+benchmarks/vec-sgemv/dataset1.h: dpgrubb13, Jerry Zhao
+benchmarks/vec-sgemv/gendata.py: dpgrubb13
+benchmarks/vec-sgemv/vec-sgemv.S: dpgrubb13
+benchmarks/vec-sgemv/vec-sgemv_main.c: katiechampion, dpgrubb13, Jerry Zhao
+benchmarks/vec-slide-conv/dataset1.h: Jerry Zhao
+benchmarks/vec-slide-conv/gendata.py: Jerry Zhao, dpgrubb13
+benchmarks/vec-slide-conv/vec-slide-conv.S: Jerry Zhao, dpgrubb13
+benchmarks/vec-slide-conv/vec-slide-conv_main.c: katiechampion, Jerry Zhao, dpgrubb13
+benchmarks/vec-softmax/data.S: Jerry Zhao
+benchmarks/vec-softmax/gen_data.py: Jerry Zhao
+benchmarks/vec-softmax/main.c: katiechampion, Jerry Zhao
+benchmarks/vec-softmax/softmax.c: Jerry Zhao
+benchmarks/vec-softmax/softmax.h: Jerry Zhao
+benchmarks/vec-spmv/data.S: Jerry Zhao
+benchmarks/vec-spmv/gen_data.py: Jerry Zhao
+benchmarks/vec-spmv/main.c: katiechampion, Jerry Zhao
+benchmarks/vec-square-root-approx/dataset1.h: Class Account
+benchmarks/vec-square-root-approx/root_approx_gendata.pl: Class Account
+benchmarks/vec-square-root-approx/vec-square_root.S: Class Account
+benchmarks/vec-square-root-approx/vec-square_root_main.c: katiechampion, Class Account, dpgrubb13
+benchmarks/vec-strlen/main.c: katiechampion, Jerry Zhao
+benchmarks/vec-strlen/vec_strlen.S: Jerry Zhao
+benchmarks/vec-tasks/dataset1.h: Jerry Zhao
+benchmarks/vec-tasks/gendata.py: Jerry Zhao
+benchmarks/vec-tasks/vec-tasks.h: Jerry Zhao
+benchmarks/vec-tasks/vec-tasks_main.cc: katiechampion, Jerry Zhao, Sebastian Silva
+benchmarks/vec-transpose-load/dataset1.h: Jerry Zhao
+benchmarks/vec-transpose-load/gendata.py: Jerry Zhao, dpgrubb13
+benchmarks/vec-transpose-load/vec-transpose.S: dpgrubb13
+benchmarks/vec-transpose-load/vec-transpose_main.c: katiechampion, dpgrubb13
+benchmarks/vec-transpose-store/dataset1.h: Jerry Zhao
+benchmarks/vec-transpose-store/gendata.py: Jerry Zhao, dpgrubb13
+benchmarks/vec-transpose-store/vec-transpose.S: dpgrubb13
+benchmarks/vec-transpose-store/vec-transpose_main.c: katiechampion, dpgrubb13
+benchmarks/env/encoding.h: Andrew Waterman, Chih-Min Chao, Yunsup Lee, Arun Thomas, Stephen Twigg, Quan Nguyen  [riscv/riscv-test-env@1c577dc]
+benchmarks/env/LICENSE: Andrew Waterman  [riscv/riscv-test-env@1c577dc]
+
+Note: where git shows only the person who imported a file (e.g. Jerry Zhao for benchmarks/common/ara/*), the
+original authors are those named in the file header: see NOTICE. Authors named inside file headers: see NOTICE.

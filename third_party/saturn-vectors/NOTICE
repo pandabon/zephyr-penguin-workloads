@@ -1,0 +1,48 @@
+NOTICE - third-party code inside saturn/
+========================================
+
+saturn/ is a copy of the benchmarks of Saturn (ucb-ee194-tapeout/saturn-vectors @ de04946,
+BSD-3-Clause, Copyright (c) 2024 The Regents of the University of California; text in LICENSE).
+Saturn's benchmarks in turn contain code from other projects. Each file keeps its original
+header; this list says where to find what, and under which licence. Where a licence is not
+a standard one, its full text is in the file header (or in the LICENSE_* file named).
+Nothing was modified in the copied files. Origins and per-file git authors: CREDITS.txt.
+
+1. ETH Zurich and University of Bologna - Ara RISC-V vector benchmark suite
+   Licence: Apache-2.0 (SPDX line and full header in each file; text in licenses/Apache-2.0.txt)
+   Author named in the headers: Matteo Perotti <mperotti@iis.ee.ethz.ch> (and the Ara authors
+   of the original kernels)
+   Files: benchmarks/common/ara/**  (util.[ch], gemv.[ch], spmv.[ch], fdotproduct.[ch], exp.h,
+          rivec/vector_defines.h)
+          and in the benchmark directories vec-conjugate-gradient, vec-cos, vec-dotprod, vec-dropout,
+          vec-exp, vec-fconv2d, vec-fconv3d, vec-fdotprod, vec-iconv2d, vec-igemm, vec-jacobi2d,
+          vec-log, vec-pathfinder, vec-roi-align, vec-softmax, vec-spmv: every file whose header
+          says "ETH Zurich" (main.c, gen_data.py and kernel sources).
+   Upstream: https://github.com/pulp-platform/ara
+
+2. Ohio State University - PolyBench/C, version stamped 2016-05-10 ("OHIO STATE UNIVERSITY SOFTWARE DISTRIBUTION LICENSE",
+   a BSD-style licence with an indemnification clause; full text in the headers)
+   Files: benchmarks/vec-jacobi2d/{main.c,jacobi2d.c,jacobi2d.h}
+
+3. Rodinia pathfinder (University of Virginia) and RiVEC (Barcelona Supercomputing Center)
+   Licence texts: benchmarks/vec-pathfinder/LICENSE_0 (Rodinia) and LICENSE_1 (RiVEC, BSD-style)
+   Files: benchmarks/vec-pathfinder/**
+
+4. Giovanni Garberoglio (LISC, Fondazione Bruno Kessler / Univ. of Trento), based on
+   "sse_mathfun.h" by Julien Pommier - zlib licence (stated in the headers), via the RISC-V vector
+   port by Cristobal Ramirez Lazo (Barcelona Supercomputing Center, 2019)
+   Files: benchmarks/vec-cos/cos.h, benchmarks/vec-exp/exp.c, benchmarks/vec-log/log.h
+
+5. RISC-V International (generated from riscv/riscv-opcodes) and riscv/riscv-test-env
+   Licence: BSD-3-Clause (benchmarks/env/encoding.h header; benchmarks/env/LICENSE is the
+   Regents/Berkeley BSD text of riscv-test-env)
+   Files: benchmarks/env/{encoding.h,LICENSE}
+
+6. RoIAlign.pytorch (https://github.com/longcw/RoIAlign.pytorch), adapted by Matteo Perotti, ETH Zurich
+   *** NO LICENCE: the headers say "No license found on the website" for the original. ***
+   Files: benchmarks/vec-roi-align/{main.c,roi_align.c,roi_align.h}
+   Open point for the repo owner: keep this directory only while the repo stays private, or drop
+   it before any public release. (Its data.S is also the largest file, 9.7 MB.)
+
+Files written by us (shim/, conf/, CMakeLists.txt, prj.conf, testcase.yaml) are Apache-2.0
+unless a header says otherwise.
