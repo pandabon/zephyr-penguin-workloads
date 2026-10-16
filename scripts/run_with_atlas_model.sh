@@ -8,7 +8,7 @@
 #
 # <build-root> holds one build dir per scenario (e.g. the --build-root of `make suite`:
 # <ws>/build/test-runner); a single build dir (has zephyr/zephyr.elf) works too. Needs `spike`
-# (SPIKE or PATH). Environment: TIMEOUT (seconds per run, default 60).
+# (SPIKE or PATH). Environment: TIMEOUT (seconds per run, default 60), JOBS (parallel runs, default 8).
 #
 # Classes: PASS (the app printed its PASS line and exited 0); UNIMPLEMENTED (the model stopped at an
 # operation it does not implement: expected for tensor/DMA kernels); ILLEGAL (Atlas halted with
@@ -24,25 +24,39 @@ SPIKE_BIN=${SPIKE:-spike}
 command -v "$SPIKE_BIN" >/dev/null || { echo "error: spike not found (set SPIKE=)" >&2; exit 2; }
 [ -f "$LIB" ] || { echo "error: $LIB not found (build it: make -C <atlas-spike-model>)" >&2; exit 2; }
 TIMEOUT=${TIMEOUT:-60}
-declare -A N; total=0
-printf '%-72s %-14s %s\n' SCENARIO RESULT DETAIL
+TMPD=$(mktemp -d); trap 'rm -rf "$TMPD"' EXIT
+JOBS=${JOBS:-8}   # runs in parallel (each Spike run is independent)
+
+classify() {   # $1 = build dir; prints "<class>\t<line>" to $TMPD/<name>
+  d=${1%/}; elf=$d/zephyr/zephyr.elf
+  isa=$(sed -n 's/^SPIKE_ISA:INTERNAL=//p' "$d/CMakeCache.txt")
+  out=$(timeout "$TIMEOUT" "$SPIKE_BIN" --isa="$isa" --extlib="$LIB" \
+        --device=atlas,imem,0x20000 --device=atlas,csr,0x40000 --device=atlas,vmem,0x20000000 \
+        "$elf" 2>&1 </dev/null); rc=$?
+  if   [ $rc -eq 124 ]; then res=TIMEOUT
+  elif grep -q 'UNIMPLEMENTED' <<<"$out"; then res=UNIMPLEMENTED
+  elif [ $rc -eq 0 ] && grep -Eq 'ATLASUP .* PASS|ATLASISA .* PASS|ATLAS KERNELS=PASS|ALL TESTS PASSED|^PASS' <<<"$out" && ! grep -Eq 'FAIL|TIMEOUT' <<<"$out"; then res=PASS
+  elif grep -Eq 'halt_reason ?= ?1([^0-9]|$)' <<<"$out"; then res=ILLEGAL
+  elif grep -q 'atlas-model: HAZARD' <<<"$out"; then res=HAZARD
+  else res=FAIL; fi
+  detail=$(grep -E 'UNIMPLEMENTED' <<<"$out" | head -n 1; grep -E '^FAIL|ATLASUP .* (FAIL|TIMEOUT)|ATLASISA .* (FAIL|TIMEOUT)|ATLASK SUMMARY' <<<"$out" | head -n 1)
+  detail=$(tr '\n' ' ' <<<"$detail" | cut -c1-120)
+  printf '%s\t%-72s %-14s rc=%s %s\n' "$res" "$(basename "$d")" "$res" "$rc" "$detail" > "$TMPD/$(basename "$d")"
+}
+export -f classify; export TMPD LIB SPIKE_BIN TIMEOUT
+
+dirs=()
 for root in "$@"; do
   for d in $( [ -f "$root/zephyr/zephyr.elf" ] && echo "$root" || ls -d "$root"/*/ 2>/dev/null ); do
-    d=${d%/}; elf=$d/zephyr/zephyr.elf; [ -f "$elf" ] || continue
-    isa=$(sed -n 's/^SPIKE_ISA:INTERNAL=//p' "$d/CMakeCache.txt")
-    out=$(timeout "$TIMEOUT" "$SPIKE_BIN" --isa="$isa" --extlib="$LIB" \
-          --device=atlas,imem,0x20000 --device=atlas,csr,0x40000 --device=atlas,vmem,0x20000000 \
-          "$elf" 2>&1 </dev/null); rc=$?
-    if   [ $rc -eq 124 ]; then res=TIMEOUT
-    elif grep -q 'UNIMPLEMENTED' <<<"$out"; then res=UNIMPLEMENTED
-    elif [ $rc -eq 0 ] && grep -Eq 'ATLASUP .* PASS|ATLAS KERNELS=PASS|ALL TESTS PASSED|^PASS' <<<"$out" && ! grep -Eq 'FAIL|TIMEOUT' <<<"$out"; then res=PASS
-    elif grep -Eq 'halt_reason ?= ?1([^0-9]|$)' <<<"$out"; then res=ILLEGAL
-    elif grep -q 'atlas-model: HAZARD' <<<"$out"; then res=HAZARD
-    else res=FAIL; fi
-    detail=$(grep -E 'UNIMPLEMENTED' <<<"$out" | head -n 1; grep -E '^FAIL|ATLASUP .* (FAIL|TIMEOUT)|ATLASK SUMMARY' <<<"$out" | head -n 1)
-    detail=$(tr '\n' ' ' <<<"$detail" | cut -c1-120)
-    printf '%-72s %-14s rc=%s %s\n' "$(basename "$d")" "$res" "$rc" "$detail"
-    N[$res]=$(( ${N[$res]:-0} + 1 )); total=$((total+1))
+    d=${d%/}; [ -f "$d/zephyr/zephyr.elf" ] && dirs+=("$d")
   done
+done
+printf '%-72s %-14s %s\n' SCENARIO RESULT DETAIL
+printf '%s\0' "${dirs[@]}" | xargs -0 -n 1 -P "$JOBS" bash -c 'classify "$1"' _
+declare -A N; total=0
+for f in "$TMPD"/*; do
+  [ -f "$f" ] || continue
+  res=$(cut -f1 "$f"); cut -f2- "$f"
+  N[$res]=$(( ${N[$res]:-0} + 1 )); total=$((total+1))
 done
 echo; printf 'total=%d' $total; for k in PASS UNIMPLEMENTED ILLEGAL HAZARD FAIL TIMEOUT; do printf '  %s=%d' $k ${N[$k]:-0}; done; echo

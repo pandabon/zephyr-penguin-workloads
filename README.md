@@ -13,6 +13,7 @@ published (see Credits).
 |---|---|---|
 | `atlas/kernels/` | The Atlas team's first bring-up tests, ported to one Zephyr app (IMEM programs as arrays, Zephyr I/O, timeouts). | nothing |
 | `atlas/upstream/` | The Atlas/Saturn team's 22 host tests (`tests/saturn_atlas_*.c`, `atlas_alu_basic.c`) built from source, one test per build (`-DATLAS_TEST=<name>`). 13 build as they are; 9 need `torch` to generate golden data. | nothing (torch for 9) |
+| `atlas/isa/` | The Atlas team's 121 ISA-level baremetal tests (`baremetal/assembly/*.S`), assembled and wrapped in the team's own C harness at build time, one test per build (`-DATLAS_ISA_TEST=<name>`). | python venv (numpy, numba, torch) for the golden data |
 | `basics/` | `hello_world`, `timer`, `mt_rvv` (4 threads, each keeps its vector register across a yield): small bring-up checks, single hart. | nothing |
 | `saturn/benchmarks/` | 55 of Saturn's vector benchmarks as one Zephyr app (`-DSATURN_BENCH=<name>`). | nothing |
 | `executorch/mnist/` | A small ExecuTorch model (XNNPACK RVV kernels) on the SoC. **Opt-in.** | ExecuTorch + XNNPACK checkouts, `flatc`, python |
@@ -59,6 +60,25 @@ FPGA: the TSI loader, e.g. `uart_tsi` from `penguin-bringup-tools`).
 make suite BOARD=chipyard_penguin/penguin/vcu118_ta ARGS=--build-only   # builds the 14 buildable scenarios of that board
 # ELFs: <workspace>/build/test-runner/<scenario>/zephyr/zephyr.elf
 ```
+
+## Atlas ISA-level tests (`atlas/isa/`)
+
+All 121 tests of `baremetal/assembly/*.S` (sp26-atlas-acc 2ae0bef209df, the tapeout pin) are built as Zephyr
+apps. Nothing generated is committed: `scripts/gen_atlas_isa_tests.py` imports the team's `assembler.py`,
+assembles the `.S` into Atlas instruction words, runs `generators/gen_<test>.py` for the golden DRAM data (as
+their `baremetal/Makefile` does) and writes the team's own C harness (`emit_c_file()`: write IMEM, read it back,
+start Atlas, poll `CSR_DBG0`, check DRAM, `*** PASSED ***`/`*** FAILED ***`) into the build directory. A small
+shim adds `ATLASISA <test> PASS|FAIL|TIMEOUT`, the exit code and a watchdog.
+
+```sh
+uv venv .venv --python 3.12                       # opt-in, gitignored; the generators import torch/numpy/numba
+uv pip install --python .venv/bin/python -r requirements-atlas.txt     # CPU torch, about 1 GB in total
+west build -b chipyard_penguin/penguin/vcu118_ta atlas/isa -- -DATLAS_ISA_TEST=mxu0_push_pop
+make suite ARGS='-f atlas_isa' BOARD=chipyard_penguin/penguin/vcu118_ta     # all 121 (about 7 min with -j 12)
+```
+
+`.venv/bin/python` is picked automatically (override: `-DATLAS_PYTHON=`). The model/bench notes under "Run on
+Spike" apply too. Copy and licence details: `third_party/tapeout-chipyard/NOTICE`.
 
 ## Run on Spike
 

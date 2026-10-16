@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "Atlas ISA-level baremetal tests (third_party/tapeout-chipyard .../baremetal)"
+
+config ATLAS_ISA_TIMEOUT_S
+	int "Watchdog: seconds of wall time before the test is declared hung"
+	default 120
+	help
+	  The team's harness polls CSR_DBG0 up to 200 million times (minutes on a slow
+	  link) and then reports a failure. The shim runs main() in the main thread and a
+	  watchdog thread that, after this many seconds, writes execControl=0 (stops
+	  Atlas), prints "ATLASISA <test> TIMEOUT" and ends the run with exit code 124.
+
+source "Kconfig.zephyr"
