@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scenarios expected to fail. The BSP's scripts/run_tests.py (--root = this repo) reports them as
+# XFAIL and flags XPASS when one starts passing: then delete the entry.
+# id = scenario name from sample.yaml/testcase.yaml. Fill in only with a reason; nothing yet.
+known_failures: []
