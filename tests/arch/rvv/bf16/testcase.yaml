@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+tests:
+  arch.riscv.rvv.bf16:
+    # Needs the BF16 vector extension (soc Kconfig selects ZVFBFMIN) and a
+    # simulator that models Zvfbfa for the altfmt cases (Spike: board.cmake).
+    filter: CONFIG_RISCV_ISA_EXT_V and CONFIG_RISCV_ISA_EXT_ZVFBFMIN
+    harness: ztest
+    integration_platforms:
+      - chipyard_penguin/penguin
