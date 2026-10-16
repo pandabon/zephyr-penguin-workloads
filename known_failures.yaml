@@ -2,5 +2,19 @@
 # Scenarios expected to fail. The BSP's scripts/run_tests.py (--root = this repo) reports them as
 # XFAIL and flags XPASS when one starts passing: then delete the entry.
 # Format: known_failures: list of {id, reason, fixed_by}; id = scenario name in sample.yaml/testcase.yaml.
-# Currently none (saturn.vec-spmv and saturn.vec-conjugate-gradient were fixed, see the git log).
-known_failures: []
+# (saturn.vec-spmv and saturn.vec-conjugate-gradient were fixed, see the git log.) The two RVV
+# context-switch entries moved here from the BSP's tests/known_failures.yaml together with the test (D35).
+known_failures:
+  - id: arch.riscv.rvv.ctx_switch
+    reason: >-
+      Kernel bug: a thread preempted by an IRQ has vl/vtype overwritten with
+      e8,m8,VLMAX (V state saved twice). On Spike exactly 3 of 6 cases
+      fail in every run (6 of 6 runs, 2026-10-16): timeslice_preemption,
+      fp_and_v and mixed_modes, i.e. every case with time-slice
+      preemption; test_block_on_semaphore passes. Hardware to confirm.
+    fixed_by: patches/zephyr/0005-riscv-v-make-vstate-save-idempotent.patch (not applied)
+  - id: arch.riscv.rvv.ctx_switch.lazy
+    reason: >-
+      Lazy V switching is not implemented in the fork (arch/riscv/core/v.c);
+      crashes at boot on the first compiler-emitted vector instruction.
+    fixed_by: no patch yet (needs lazy V trap path in the fork)

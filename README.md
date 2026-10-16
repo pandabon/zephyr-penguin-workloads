@@ -18,7 +18,9 @@ published (see Credits).
 | `saturn/benchmarks/` | 55 of Saturn's vector benchmarks as one Zephyr app (`-DSATURN_BENCH=<name>`). | nothing |
 | `executorch/mnist/` | A small ExecuTorch model (XNNPACK RVV kernels) on the SoC. **Opt-in.** | ExecuTorch + XNNPACK checkouts, `flatc`, python |
 | `third_party/tapeout-chipyard/` | The copied Atlas team sources those apps build. Same paths as in the tapeout-chipyard repo, so a checkout can replace it. Read `NOTICE`. | - |
-| `known_failures.yaml` | Scenarios expected to fail (none at present). | - |
+| `tests/rvv/` | Tests of the vector unit and the kernel's V state: `vlen` (VLEN/VLENB), `bf16` (Zvfbfmin/Zvfbfa), `ctx_switch` (V state across context switches; the stock fork fails 3 of 6 cases, expected). Moved from the BSP with their history (D35). | nothing |
+| `tests/linker/memregion/` | A linker-region check (an app section placed in a board memory region). Moved from the BSP with its history. | nothing |
+| `known_failures.yaml` | Scenarios expected to fail: `arch.riscv.rvv.ctx_switch` and `.lazy` (kernel bugs, see the file). | - |
 
 Each group is a folder with its own apps (`<group>/<app>/`) and its own opt-in dependencies; a new group never adds
 dependencies to the others.
