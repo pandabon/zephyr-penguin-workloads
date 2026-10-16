@@ -1,16 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# Four threads each load a vector register, yield, store it back and check it: a context switch must keep
+# the thread's v1. PASS = four "Success" lines and exit code 0 (main() exits 1 if any thread saw wrong data).
 sample:
-  description: Hello World sample, the simplest Zephyr
-    application
-  name: hello world
+  name: penguin_basics_mt_rvv
 common:
-  tags: introduction
-  integration_platforms:
-    - native_sim
-  harness: console
-  harness_config:
-    type: one_line
-    regex:
-      - "Hello World! (.*)"
+  platform_allow:
+    - chipyard_penguin/penguin
+    - chipyard_penguin/penguin/vcu118_ta
+  tags: basics rvv
 tests:
-  sample.basic.helloworld:
-    tags: introduction
+  basics.mt_rvv:
+    harness: console
+    harness_config:
+      type: multi_line
+      regex:
+        - "Zephyr is running on 1 CPUs"
+        - "Success"
+        - "All threads finished execution."

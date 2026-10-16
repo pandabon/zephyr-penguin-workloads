@@ -3,6 +3,9 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
+ * Credits: written by Dima Nikiforov (ucb-bar/zephyr-chipyard-sw, branch dev @ 838a4fed2be,
+ * samples/timer). Copied into penguin-workloads unchanged except for this comment.
+ *
  * This example measures three types of operations:
  *  1. A compute-bound dummy function (dummy_work)
  *  2. A busy-wait delay using k_busy_wait()

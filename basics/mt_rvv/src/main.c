@@ -2,6 +2,11 @@
  * Copyright (c) 2012-2014 Wind River Systems, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * Credits: Zephyr's samples/hello_world (Wind River Systems, Apache-2.0) as extended by Dima Nikiforov
+ * in ucb-bar/zephyr-chipyard-sw (branch dev @ 838a4fed2be, samples/test_mt_rvv).
+ * Changes for Penguin (single hart): the error count and exit code at the end (the original always
+ * exited 0), and the prj.conf without SMP. The k_thread_cpu_pin() calls are kept (hart 0 only here).
  */
 
 #include <stdio.h>
@@ -9,6 +14,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/reboot.h>
 #include <zephyr/arch/cpu.h> // Required for arch_curr_cpu()->id
+#include <chipyard/sim_exit.h>
 
 #define NUM_HARTS   CONFIG_MP_MAX_NUM_CPUS // Number of available harts (cores)
 #define NUM_THREADS NUM_HARTS * 4          // Number of threads to create
@@ -19,6 +25,7 @@ struct k_thread thread_data[NUM_THREADS];
 k_tid_t thread_ids[NUM_THREADS];
 
 struct k_mutex print_mutex;
+static volatile int errors; /* threads that saw wrong vector data (written under print_mutex) */
 
 void thread_function(void *arg1, void *arg2, void *arg3)
 {
@@ -60,6 +67,7 @@ void thread_function(void *arg1, void *arg2, void *arg3)
 	for (int i = 0; i < 4; i++) {
 		if (buf[i] != thread_id) {
 			error = 1;
+			errors++;
 			printf("error: buf[%d] = 0x%08X\n", i, buf[i]);
 		}
 	}
@@ -98,6 +106,10 @@ int main(void)
 	}
 
 	printf("All threads finished execution.\n");
+	if (errors) {
+		printf("mt_rvv: FAIL (%d wrong values)\n", errors);
+		chipyard_sim_exit(1);
+	}
 	sys_reboot(SYS_REBOOT_COLD);
 	return 0;
 }

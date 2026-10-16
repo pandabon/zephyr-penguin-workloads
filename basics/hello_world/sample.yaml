@@ -1,16 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
 sample:
-  description: Hello World sample with HTIF exit
-    application
-  name: hello world
+  name: penguin_basics_hello_world
 common:
-  tags: introduction
-  integration_platforms:
-    - native_sim
-  harness: console
-  harness_config:
-    type: one_line
-    regex:
-      - "Hello World! (.*)"
+  platform_allow:
+    - chipyard_penguin/penguin
+    - chipyard_penguin/penguin/vcu118_ta
+  tags: basics
 tests:
-  sample.basic.helloworld:
-    tags: introduction
+  basics.hello_world:
+    harness: console
+    harness_config:
+      type: one_line
+      regex:
+        - "Hello World! chipyard_penguin/penguin"
