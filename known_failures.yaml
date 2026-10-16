@@ -18,3 +18,11 @@ known_failures:
       Lazy V switching is not implemented in the fork (arch/riscv/core/v.c);
       crashes at boot on the first compiler-emitted vector instruction.
     fixed_by: no patch yet (needs lazy V trap path in the fork)
+  - id: arch.riscv.rvv.ctx_switch_min
+    reason: >-
+      Kernel bug (same as arch.riscv.rvv.ctx_switch): a thread preempted by
+      an IRQ is saved twice and resumes with vl/vtype = e8,m8,VLMAX. On the
+      stock fork 2 of 3 cases fail in every run: test_preempt_csr reads
+      vl=0x100 vtype=0xc3, test_preempt_compiled faults with an illegal
+      instruction (mcause 2); test_voluntary_csr passes. Hardware to confirm.
+    fixed_by: zephyr-chipyard-bsp patches/zephyr/0005-riscv-v-make-vstate-save-idempotent.patch (not applied)
