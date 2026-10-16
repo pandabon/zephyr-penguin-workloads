@@ -9,7 +9,7 @@
 #   fp8 / bf16        needs FP8 / bf16 vector instructions Spike does not implement (build_only)
 # build_only scenarios are compiled but not run: Spike traps on the instruction ("Illegal
 # instruction"); run them on the FPGA / chip.
-# Known failures (run, but expected to fail) are listed in known_failures.saturn.yaml.
+# Known failures (run, but expected to fail) are listed in ../../known_failures.yaml (none at present).
 common:
   platform_allow: chipyard_penguin/penguin chipyard_penguin/penguin/vcu118_ta
   arch_allow: riscv
@@ -41,8 +41,7 @@ tests:
     tags: bench
     extra_args: SATURN_BENCH=vec-conditional
   saturn.vec-conjugate-gradient:
-    # KNOWN FAILURE (known_failures.saturn.yaml): GCC 14.3 leaves vtype at e64m8 across inline asm, so Spike traps with Illegal instruction.
-    # Probably a compiler issue; build is fine.
+    # SMOKE: no self-check; prints cycle/instruction counts. (Fixed: the Ara spmv helper and daxpy set vtype inside their asm.)
     tags: smoke
     extra_args: SATURN_BENCH=vec-conjugate-gradient
   saturn.vec-conv-3:
@@ -195,8 +194,8 @@ tests:
     tags: bench
     extra_args: SATURN_BENCH=vec-softmax
   saturn.vec-spmv:
-    # KNOWN FAILURE (known_failures.saturn.yaml): GCC 14.3 leaves vtype at e64m8 across inline asm, so Spike traps with Illegal instruction.
-    # Probably a compiler issue; build is fine.
+    # Self-checking ("Passed."). Fixed: the Ara spmv helper sets vtype inside its asm blocks (see the git log).
+    tags: bench
     extra_args: SATURN_BENCH=vec-spmv
   saturn.vec-square-root-approx:
     # SMOKE: this program prints numbers but does not compare them with a reference.

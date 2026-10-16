@@ -36,16 +36,22 @@ void spmv_csr_idx32(int32_t N_ROW, int32_t *CSR_PROW, int32_t *CSR_INDEX,
 
     // clear register file
 
+    // penguin-workloads: vtype is set INSIDE each asm block (vsetvli), not by the intrinsic before it:
+    // GCC may insert its own vsetvli (e8,m1) between separate statements, so asm that relies on vtype
+    // persisting runs at the wrong SEW and traps. Same AVL/SEW/LMUL as the original intended.
     volatile size_t maxvl = __riscv_vsetvl_e64m8(len);
-    asm volatile("vmv.v.i v24,  0");
+    asm volatile("vsetvli x0, %0, e64, m8, ta, ma\n\t"
+                 "vmv.v.i v24,  0" ::"r"(maxvl));
 
     double dbg = 0;
     while (len) {
       volatile size_t slice_size = __riscv_vsetvl_e64m8(len);
-      asm volatile("vle64.v v8, (%0)" ::"r"(data));          // fetch entries
-      asm volatile("vle32.v v16, (%0)" ::"r"(index));         // fetch indices
-      asm volatile("vloxei32.v v0, (%0), v16" ::"r"(IN_VEC)); // load data
-      asm volatile("vfmacc.vv v24, v8, v0");      // vector multiply
+      asm volatile("vsetvli x0, %3, e64, m8, ta, ma\n\t"
+                   "vle64.v v8, (%0)\n\t"           // fetch entries
+                   "vle32.v v16, (%1)\n\t"          // fetch indices
+                   "vloxei32.v v0, (%2), v16\n\t"   // load data
+                   "vfmacc.vv v24, v8, v0"           // vector multiply
+                   ::"r"(data), "r"(index), "r"(IN_VEC), "r"(slice_size));
       /* if (i == 0) { */
       /* 	printf("slice=%ld\n", slice_size); */
       /* 	for (size_t j = 0; j < slice_size; j++) { */

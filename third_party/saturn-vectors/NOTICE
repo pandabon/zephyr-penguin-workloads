@@ -6,7 +6,7 @@ BSD-3-Clause, Copyright (c) 2024 The Regents of the University of California; te
 Saturn's benchmarks in turn contain code from other projects. Each file keeps its original
 header; this list says where to find what, and under which licence. Where a licence is not
 a standard one, its full text is in the file header (or in the LICENSE_* file named).
-Nothing was modified in the copied files. Origins and per-file git authors: CREDITS.txt.
+Copied files are unmodified except benchmarks/common/ara/spmv.c and benchmarks/vec-conjugate-gradient/main.c (vtype set inside the inline asm; marked "penguin-workloads" in the code and explained in the git log). Origins and per-file git authors: CREDITS.txt.
 
 1. ETH Zurich and University of Bologna - Ara RISC-V vector benchmark suite
    Licence: Apache-2.0 (SPDX line and full header in each file; text in licenses/Apache-2.0.txt)

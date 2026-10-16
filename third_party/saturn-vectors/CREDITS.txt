@@ -1,7 +1,7 @@
 CREDITS for saturn/ (Saturn vector benchmarks, copied into penguin-workloads)
 =============================================================================
 
-Origin of the copied benchmark sources (copied, not modified):
+Origin of the copied benchmark sources (copied; two files carry a marked local fix, see NOTICE):
   repo   : ucb-ee194-tapeout/saturn-vectors  (git@github.com:ucb-ee194-tapeout/saturn-vectors.git)
   commit : de04946ac1ce878c79a4d6e74e493c5f440908e2  (Thu Apr 23 2026, "fix benchmark compilation issues")
   path   : benchmarks/   (read via tapeout-chipyard @ 48c3a7d11f6de3f0cecb33ae6a31c24ec26ff9d8,

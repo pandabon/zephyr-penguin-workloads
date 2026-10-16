@@ -17,7 +17,7 @@ published (see Credits).
 | `saturn/benchmarks/` | 55 of Saturn's vector benchmarks as one Zephyr app (`-DSATURN_BENCH=<name>`). | nothing |
 | `executorch/mnist/` | A small ExecuTorch model (XNNPACK RVV kernels) on the SoC. **Opt-in.** | ExecuTorch + XNNPACK checkouts, `flatc`, python |
 | `third_party/tapeout-chipyard/` | The copied Atlas team sources those apps build. Same paths as in the tapeout-chipyard repo, so a checkout can replace it. Read `NOTICE`. | - |
-| `known_failures.yaml` | Scenarios expected to fail (empty). | - |
+| `known_failures.yaml` | Scenarios expected to fail (none at present). | - |
 
 Each group is a folder with its own apps (`<group>/<app>/`) and its own opt-in dependencies; a new group never adds
 dependencies to the others.
@@ -122,7 +122,7 @@ for b in $(ls third_party/saturn-vectors/benchmarks | grep -E '^vec-|_test'); do
   west build -d build/saturn/$b -t run >build/saturn/$b.log 2>&1; echo "$b rc=$?"
 done
 ```
-Expected: 39 pass (`vec-mx-unary` too, since the BSP's Spike ISA includes `zvfofp8min`, BSP cfdcd0f); `vec-spmv`, `vec-conjugate-gradient` fail (GCC vtype issue, `known_failures.yaml`); the 14 FP8 /
+Expected: 41 pass (`vec-mx-unary` too, since the BSP's Spike ISA includes `zvfofp8min`, BSP cfdcd0f); `vec-spmv` and `vec-conjugate-gradient` pass since the Ara helper sets vtype inside its inline asm (they failed under GCC 14.3 before); the 14 FP8 /
 bf16-reduction ones trap on Spike by design (`build_only` in `saturn/benchmarks/testcase.yaml`, run them on the FPGA). The
 BSP's `scripts/run_tests.py` reads `testcase.yaml` files only inside the BSP; point it at `saturn/benchmarks/testcase.yaml`
 once it has a `--root` option (proposed).
@@ -133,7 +133,7 @@ load the printed ELF with uart_tsi.
 **Good on the bench** (self-checking, Spike-verified, small): `vec-strlen vec-mx-l2norm vec-mx-dotprod vec-mx-rmsnorm
 vec-sgemm-v2 vec-mx-conv1d vec-mx-fma vec-mx-masked-binary vec-conditional vec-mx-unary vec-transpose-load
 vec-transpose-store vec-mixed_width_mask vec-dropout vec-softmax vec-dotprod vec-fft vec-log vec-exp vec-cos
-vec-slide-conv vec-sgemm vec-sgemv vec-conv-3 vec-sgemm-v3 vec-sep-conv-3 vec-igemm` (tag `bench`, in this order = ELF size).
+vec-slide-conv vec-sgemm vec-sgemv vec-conv-3 vec-sgemm-v3 vec-sep-conv-3 vec-igemm vec-spmv` (tag `bench`, in this order = ELF size).
 Not for the bench: `vec-roi-align` (1.8 MB), `vec-jacobi2d`, `vec-fconv3d` (0.5-0.6 MB each). Put the FP8 and bf16-reduction
 programs on the bench only to test those instructions: they are the point of running on hardware, since Spike cannot.
 

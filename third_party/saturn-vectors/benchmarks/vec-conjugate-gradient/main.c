@@ -47,10 +47,13 @@ extern double A_DATA[] __attribute__((aligned(16)));
 void daxpy(double *x, double a, double *y, double *dest, uint64_t len) {
   while (len) {
     size_t vl = __riscv_vsetvl_e64m8(len);
-    asm volatile("vle64.v v0, (%0);" ::"r"(x));
-    asm volatile("vle64.v v8, (%0);" ::"r"(y));
-    asm volatile("vfmacc.vf v8, %0, v0" ::"f"(a));
-    asm volatile("vse64.v v8, (%0);" ::"r"(dest));
+    // penguin-workloads: vsetvli inside the asm (GCC may insert its own vsetvli between statements)
+    asm volatile("vsetvli x0, %4, e64, m8, ta, ma\n\t"
+                 "vle64.v v0, (%0)\n\t"
+                 "vle64.v v8, (%1)\n\t"
+                 "vfmacc.vf v8, %2, v0\n\t"
+                 "vse64.v v8, (%3)"
+                 ::"r"(x), "r"(y), "f"(a), "r"(dest), "r"(vl));
     x = x + vl;
     y = y + vl;
     dest = dest + vl;
