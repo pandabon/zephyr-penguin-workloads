@@ -1,0 +1,66 @@
+Third-party source in this folder
+=================================
+
+Everything under third_party/tapeout-chipyard/ is COPIED, unmodified, from the
+EE194/EE290 course tapeout repo (tapeout-chipyard, a fork of Chipyard), commit
+48c3a7d11f6de3f0cecb33ae6a31c24ec26ff9d8 (2026-05-24), read from a local
+checkout. The sub-folder generators/sp26-atlas-acc comes from that repo's
+submodule sp26-atlas-acc at 2ae0bef209df6db78c3de18e8f651bb43855cce9, and
+generators/sp26-atlas-acc/dependencies/fpex/model/bf16_exp_model.py from the
+submodule fpex at ab0cf6f5b0690538f9ebb1d6af46f7caf97837d4. The paths below
+the folder are the original paths, so a tapeout-chipyard checkout can replace
+this folder one for one (-DTAPEOUT_CHIPYARD=<checkout>).
+
+It is the work of the Atlas/Saturn team, not ours. Authors (git author names
+from `git log --follow` of each file in the source repos; kellytou is "T.K.",
+ericwen10 is Eric Wen, nicorakela is Nicolas Rakela / Herrera):
+
+  tests/atlas_alu_basic.c                         Eric Wen, ericwen10, Nicolas Reed
+  tests/atlas_mmio.h                              kellytou, Nicolas Reed
+  tests/saturn_atlas_stress_common.h              kellytou, Nicolas Reed
+  tests/saturn_rvv_mx.h                           Nicolas Reed
+  tests/saturn_atlas_4rung_2bank_arb.c            Nicolas Reed
+  tests/saturn_atlas_buffered_optB_restart.c      Nicolas Reed
+  tests/saturn_atlas_dmem_sbus_dma.c              Nicolas Reed
+  tests/saturn_atlas_vmem_dram_dual.c             Nicolas Reed
+  tests/saturn_atlas_vmem_smoke.c                 Nicolas Reed
+  tests/saturn_atlas_8dma_rvv_vmem.c              kellytou, Nicolas Reed
+  tests/saturn_atlas_buffered_lower_first.c       kellytou, Nicolas Reed
+  tests/saturn_atlas_buffered_optA_end_jal.c      kellytou, Nicolas Reed
+  tests/saturn_atlas_fp8_dequant_bridge.c         kellytou, Nicolas Reed
+  tests/saturn_atlas_fp8_quantize_bridge.c        kellytou, Nicolas Reed
+  tests/saturn_atlas_pause_resume.c               kellytou, Nicolas Reed
+  tests/saturn_atlas_pi0_slice.c                  kellytou, Nicolas Reed
+  tests/saturn_atlas_quad_phase_large.c           kellytou, Nicolas Reed
+  tests/saturn_atlas_smolvla_compose*.c (3)       kellytou, Nicolas Reed
+  tests/saturn_atlas_tri_phase*.c (3)             kellytou, Nicolas Reed
+  tests/saturn_atlas_vmem_3way_arb.c              kellytou, Nicolas Reed
+
+  generators/sp26-atlas-acc/baremetal/assembler.py
+        kellytou, Jason Tang (jason.tang), Eric Wen (ericwen10), rylee4761,
+        aabel14, Brandon Kim
+  .../baremetal/assembly/saturn_atlas_cooperative/sas_*.S
+        Nicolas Reed, rylee4761, kellytou, aabel14
+  .../baremetal/generators/{gen_saturn_atlas_*,gen_kernel_header,gen_utils,
+        vpu_gen_utils,mxu_fp8_utils}.py
+        kellytou, Nicolas Reed, ericwen10
+  .../baremetal/generators/software_models/
+        kellytou, Nicolas Reed, ericwen10
+  .../dependencies/fpex/model/bf16_exp_model.py   Shashank Anand
+
+Licences
+--------
+* tests/ : the tapeout-chipyard repository LICENSE applies (BSD 3-Clause,
+  Copyright (c) 2017-2020 The Regents of the University of California). Its
+  text is the file LICENSE in this folder. The redistribution conditions
+  (keep the copyright notice, the conditions and the disclaimer) are met by
+  keeping that file next to the sources.
+
+* generators/sp26-atlas-acc/ : the sp26-atlas-acc repository has NO licence
+  file, and neither does the copied fpex file. No licence is granted to us in
+  writing. These files are here only because this repository is PRIVATE and
+  for the team's own bring-up. Before ANY publication of this repository
+  they must be cleared with the Atlas team (or removed and fetched from the
+  team's checkout through TAPEOUT_CHIPYARD instead).
+
+Nothing here is edited. If a file must change, change it upstream and re-copy.
