@@ -1,14 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# CREDIT: the tests this sample builds, and the generators/assembler it calls, are
-# the Atlas/Saturn team's work, used unmodified from the course tapeout repo (tapeout-chipyard)
-# (tests/, generators/sp26-atlas-acc/baremetal/), commit
-# 48c3a7d11f6de3f0cecb33ae6a31c24ec26ff9d8, submodule sp26-atlas-acc 2ae0bef209df. git authors of tests/: kellytou
-# ("T.K."), Eric Wen, Nicolas Rakela (Herrera), Nicolas Reed; sp26-atlas-acc
-# baremetal: kellytou, Nicolas Reed, jason.tang, Eric Wen, nicorakela. The build
-# logic mirrors tests/CMakeLists.txt there. We own only the files in this directory.
+# CREDIT: the tests listed here are the Atlas/Saturn team's work (tapeout-chipyard tests/, commit
+# 48c3a7d11f6de3f0cecb33ae6a31c24ec26ff9d8), copied into ../../third_party/tapeout-chipyard;
+# authors and licences: ../../third_party/tapeout-chipyard/NOTICE. We own only this file.
 #
-# Inventory of the upstream host tests (tapeout-chipyard/tests/): one entry per
+# Inventory of the upstream host tests (third_party/tapeout-chipyard/tests/): one entry per
 # test name. Included by CMakeLists.txt.
 #
 #   ATLAS_KIND_<t>     asis | kernel | torch   (see CMakeLists.txt)

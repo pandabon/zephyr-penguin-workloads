@@ -1,20 +1,19 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# CREDIT: the tests this sample builds, and the generators/assembler it calls, are
-# the Atlas/Saturn team's work, used unmodified from the course tapeout repo (tapeout-chipyard)
-# (tests/, generators/sp26-atlas-acc/baremetal/), commit
-# 48c3a7d11f6de3f0cecb33ae6a31c24ec26ff9d8, submodule sp26-atlas-acc 2ae0bef209df. git authors of tests/: kellytou
-# ("T.K."), Eric Wen, Nicolas Rakela (Herrera), Nicolas Reed; sp26-atlas-acc
-# baremetal: kellytou, Nicolas Reed, jason.tang, Eric Wen, nicorakela. The build
-# logic mirrors tests/CMakeLists.txt there. We own only the files in this directory.
+# CREDIT: the tests this app builds, and the generators/assembler it calls, are the
+# Atlas/Saturn team's work, copied unmodified from the course tapeout repo
+# (tapeout-chipyard) tests/ and generators/sp26-atlas-acc/baremetal/ into
+# ../../third_party/tapeout-chipyard (commit 48c3a7d11f6de3f0cecb33ae6a31c24ec26ff9d8,
+# submodule sp26-atlas-acc 2ae0bef209df). Authors, licences and the licence caveat:
+# ../../third_party/tapeout-chipyard/NOTICE. The build logic mirrors tests/CMakeLists.txt
+# there. We own only the files in this directory.
 #
-# Build ONE of the Atlas team's host tests straight from their source tree
-# (tapeout-chipyard/tests/*.c), nothing copied:
+# Build ONE of the Atlas team's host tests from their source:
 #
 #   west build -b chipyard_penguin/penguin atlas/upstream -- \
 #       -DATLAS_TEST=saturn_atlas_pause_resume
 #
-# Why not the plain_app core (cmake/plain_app/)? That core compiles every .c in
+# Why not the BSP's plain_app core (cmake/plain_app/)? That core compiles every .c in
 # a directory it is pointed at; the upstream tests/ directory holds ~45 files
 # with their own main() each, so we need to pick exactly one file. We do reuse
 # its idea (link with --wrap=main so that a returning main() ends the run with
@@ -22,9 +21,10 @@
 #
 # Variables (all optional except that ATLAS_TEST defaults to the smallest test):
 #   ATLAS_TEST        test name from tests.cmake (the upstream file stem)
-#   TAPEOUT_CHIPYARD  tapeout-chipyard checkout; -D or the env var of the same name.
-#                     No default location: it must be given.
-# The checkout is only READ. Everything generated (assembled Atlas kernels,
+#   TAPEOUT_CHIPYARD  OPTIONAL override: a tapeout-chipyard checkout to build from instead of
+#                     the copy in third_party/ (same layout), e.g. to try a newer commit;
+#                     -D or the env var of the same name. Unset = use the copy.
+# The source tree is only READ. Everything generated (assembled Atlas kernels,
 # golden-data headers) goes into the build directory.
 
 cmake_minimum_required(VERSION 3.20.0)
@@ -33,16 +33,17 @@ cmake_minimum_required(VERSION 3.20.0)
 if(NOT TAPEOUT_CHIPYARD)
   set(TAPEOUT_CHIPYARD "$ENV{TAPEOUT_CHIPYARD}")
 endif()
-if(TAPEOUT_CHIPYARD)
-  get_filename_component(TAPEOUT_CHIPYARD "${TAPEOUT_CHIPYARD}" ABSOLUTE)
+if(NOT TAPEOUT_CHIPYARD)
+  # default: the copy imported into this repo (see third_party/tapeout-chipyard/NOTICE)
+  set(TAPEOUT_CHIPYARD "${CMAKE_CURRENT_LIST_DIR}/../../third_party/tapeout-chipyard")
 endif()
+get_filename_component(TAPEOUT_CHIPYARD "${TAPEOUT_CHIPYARD}" ABSOLUTE)
 set(UP_TESTS "${TAPEOUT_CHIPYARD}/tests")
 set(UP_ATLAS "${TAPEOUT_CHIPYARD}/generators/sp26-atlas-acc")
 if(NOT EXISTS "${UP_TESTS}/atlas_mmio.h")
   message(FATAL_ERROR
     "TAPEOUT_CHIPYARD='${TAPEOUT_CHIPYARD}' has no tests/atlas_mmio.h. "
-    "Pass -DTAPEOUT_CHIPYARD=<checkout> or export TAPEOUT_CHIPYARD. "
-    "(scripts/run_tests.py skips these scenarios when the checkout is absent.)")
+    "Unset it to use the copy in third_party/tapeout-chipyard, or point it at a tapeout-chipyard checkout.")
 endif()
 
 include(${CMAKE_CURRENT_LIST_DIR}/tests.cmake)   # defines ATLAS_ALL_TESTS + per-test facts

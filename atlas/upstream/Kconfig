@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-mainmenu "Atlas upstream host tests (built from tapeout-chipyard)"
+mainmenu "Atlas team host tests (third_party/tapeout-chipyard)"
 
 config ATLAS_UPSTREAM_TIMEOUT_S
 	int "Watchdog: seconds of wall time before the test is declared hung"
