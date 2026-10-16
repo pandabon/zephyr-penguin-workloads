@@ -4,9 +4,9 @@
 # (SPIKE_EXTRA_ARGS, see the README) they can be run; the model has no tensor/DMA ops yet.
 # run_tests.py builds only the board it is given, so the vcu118_ta scenarios SKIP on the default
 # board: build them with --board chipyard_penguin/penguin/vcu118_ta.
-# The tests marked `skip: true` need golden headers from the team's bit-exact models, whose Python
-# generators `import torch`; no pre-generated headers exist in the source repo and our env has no
-# torch. Remove `skip: true` (or build one with -DATLAS_TEST=<name>) in an environment with torch+numpy.
+# The needs_python:torch tests generate golden headers with the team's bit-exact models (Python
+# generators that `import torch`): CMake uses <repo>/.venv/bin/python (or -DATLAS_PYTHON /
+# $ATLAS_PYTHON); it fails at configure time with a clear message if that python lacks torch.
 sample:
   name: atlas_upstream
 common:
@@ -94,90 +94,72 @@ tests:
   sample.penguin.atlas_upstream.saturn_atlas_smolvla_compose:
     platform_allow: chipyard_penguin/penguin
     extra_args: ATLAS_TEST=saturn_atlas_smolvla_compose
-    skip: true
     tags: needs_python:torch
   sample.penguin.vcu118_ta.atlas_upstream.saturn_atlas_smolvla_compose:
     platform_allow: chipyard_penguin/penguin/vcu118_ta
     extra_args: ATLAS_TEST=saturn_atlas_smolvla_compose
-    skip: true
     tags: needs_python:torch
   sample.penguin.atlas_upstream.saturn_atlas_smolvla_compose_large:
     platform_allow: chipyard_penguin/penguin
     extra_args: ATLAS_TEST=saturn_atlas_smolvla_compose_large
-    skip: true
     tags: needs_python:torch
   sample.penguin.vcu118_ta.atlas_upstream.saturn_atlas_smolvla_compose_large:
     platform_allow: chipyard_penguin/penguin/vcu118_ta
     extra_args: ATLAS_TEST=saturn_atlas_smolvla_compose_large
-    skip: true
     tags: needs_python:torch
   sample.penguin.atlas_upstream.saturn_atlas_tri_phase:
     platform_allow: chipyard_penguin/penguin
     extra_args: ATLAS_TEST=saturn_atlas_tri_phase
-    skip: true
     tags: needs_python:torch
   sample.penguin.vcu118_ta.atlas_upstream.saturn_atlas_tri_phase:
     platform_allow: chipyard_penguin/penguin/vcu118_ta
     extra_args: ATLAS_TEST=saturn_atlas_tri_phase
-    skip: true
     tags: needs_python:torch
   sample.penguin.atlas_upstream.saturn_atlas_tri_phase_large:
     platform_allow: chipyard_penguin/penguin
     extra_args: ATLAS_TEST=saturn_atlas_tri_phase_large
-    skip: true
     tags: needs_python:torch
   sample.penguin.vcu118_ta.atlas_upstream.saturn_atlas_tri_phase_large:
     platform_allow: chipyard_penguin/penguin/vcu118_ta
     extra_args: ATLAS_TEST=saturn_atlas_tri_phase_large
-    skip: true
     tags: needs_python:torch
   sample.penguin.atlas_upstream.saturn_atlas_fp8_quantize_bridge:
     platform_allow: chipyard_penguin/penguin
     extra_args: ATLAS_TEST=saturn_atlas_fp8_quantize_bridge
-    skip: true
     tags: needs_python:torch
   sample.penguin.vcu118_ta.atlas_upstream.saturn_atlas_fp8_quantize_bridge:
     platform_allow: chipyard_penguin/penguin/vcu118_ta
     extra_args: ATLAS_TEST=saturn_atlas_fp8_quantize_bridge
-    skip: true
     tags: needs_python:torch
   sample.penguin.atlas_upstream.saturn_atlas_fp8_dequant_bridge:
     platform_allow: chipyard_penguin/penguin
     extra_args: ATLAS_TEST=saturn_atlas_fp8_dequant_bridge
-    skip: true
     tags: needs_python:torch
   sample.penguin.vcu118_ta.atlas_upstream.saturn_atlas_fp8_dequant_bridge:
     platform_allow: chipyard_penguin/penguin/vcu118_ta
     extra_args: ATLAS_TEST=saturn_atlas_fp8_dequant_bridge
-    skip: true
     tags: needs_python:torch
   sample.penguin.atlas_upstream.saturn_atlas_quad_phase_large:
     platform_allow: chipyard_penguin/penguin
     extra_args: ATLAS_TEST=saturn_atlas_quad_phase_large
-    skip: true
     tags: needs_python:torch
   sample.penguin.vcu118_ta.atlas_upstream.saturn_atlas_quad_phase_large:
     platform_allow: chipyard_penguin/penguin/vcu118_ta
     extra_args: ATLAS_TEST=saturn_atlas_quad_phase_large
-    skip: true
     tags: needs_python:torch
   sample.penguin.atlas_upstream.saturn_atlas_smolvla_compose_native_bf16:
     platform_allow: chipyard_penguin/penguin
     extra_args: ATLAS_TEST=saturn_atlas_smolvla_compose_native_bf16
-    skip: true
     tags: needs_python:torch
   sample.penguin.vcu118_ta.atlas_upstream.saturn_atlas_smolvla_compose_native_bf16:
     platform_allow: chipyard_penguin/penguin/vcu118_ta
     extra_args: ATLAS_TEST=saturn_atlas_smolvla_compose_native_bf16
-    skip: true
     tags: needs_python:torch
   sample.penguin.atlas_upstream.saturn_atlas_tri_phase_native_bf16:
     platform_allow: chipyard_penguin/penguin
     extra_args: ATLAS_TEST=saturn_atlas_tri_phase_native_bf16
-    skip: true
     tags: needs_python:torch
   sample.penguin.vcu118_ta.atlas_upstream.saturn_atlas_tri_phase_native_bf16:
     platform_allow: chipyard_penguin/penguin/vcu118_ta
     extra_args: ATLAS_TEST=saturn_atlas_tri_phase_native_bf16
-    skip: true
     tags: needs_python:torch

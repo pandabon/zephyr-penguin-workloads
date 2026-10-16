@@ -69,7 +69,7 @@ message(STATUS "atlas_upstream: test ${ATLAS_TEST} (${_kind}) from ${UP_TESTS}")
 #   kernel  + kernel_<k>.h (Atlas .S assembled by the team's assembler.py) and a
 #             random-data golden header; pure python (no numpy/torch)
 #   torch   + golden header computed with the team's bit-exact numpy/torch models.
-#             Needs `import torch`, which our env (.tools/env) does not have.
+#             Needs `import torch` (+numpy, numba): use <repo>/.venv or -DATLAS_PYTHON / $ATLAS_PYTHON.
 set(GEN_ROOT "${CMAKE_BINARY_DIR}/atlas_upstream_gen")
 set(GEN_KERNELS "${GEN_ROOT}/kernels")
 set(GEN_GOLDEN "${GEN_ROOT}/golden")
@@ -77,7 +77,17 @@ file(MAKE_DIRECTORY "${GEN_KERNELS}" "${GEN_GOLDEN}")
 set(GEN_DIR "${UP_ATLAS}/baremetal/generators")
 set(ASM_DIR "${UP_ATLAS}/baremetal/assembly/saturn_atlas_cooperative")
 
-if(NOT PYTHON_EXECUTABLE AND Python3_EXECUTABLE)
+# Python for the generators: -DATLAS_PYTHON=... or $ENV{ATLAS_PYTHON} wins; else <repo>/.venv/bin/python
+# when it exists (the venv with torch+numpy+numba); else Zephyr's python.
+if(NOT ATLAS_PYTHON AND DEFINED ENV{ATLAS_PYTHON})
+  set(ATLAS_PYTHON "$ENV{ATLAS_PYTHON}")
+endif()
+get_filename_component(_atlas_venv_py "${CMAKE_CURRENT_LIST_DIR}/../../.venv/bin/python" ABSOLUTE)
+if(ATLAS_PYTHON)
+  set(PYTHON_EXECUTABLE "${ATLAS_PYTHON}")
+elseif(EXISTS "${_atlas_venv_py}")
+  set(PYTHON_EXECUTABLE "${_atlas_venv_py}")
+elseif(NOT PYTHON_EXECUTABLE AND Python3_EXECUTABLE)
   set(PYTHON_EXECUTABLE "${Python3_EXECUTABLE}")
 endif()
 # PYTHONDONTWRITEBYTECODE: do not drop __pycache__ into the READ-ONLY upstream tree.
@@ -100,13 +110,13 @@ endif()
 
 if(_kind STREQUAL "kernel" OR _kind STREQUAL "torch")
   if(_kind STREQUAL "torch")
-    execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "import torch"
+    execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "import torch, numpy; torch.zeros(1)"
                     RESULT_VARIABLE _rc OUTPUT_QUIET ERROR_QUIET)
     if(NOT _rc EQUAL 0)
       message(FATAL_ERROR
         "${ATLAS_TEST} needs golden headers from the team's bit-exact models, whose "
         "generators `import torch` (python: ${PYTHON_EXECUTABLE}), and torch is not "
-        "installed in this environment. Needed: python packages torch + numpy in the env that runs cmake "
+        "installed in that python. Create <repo>/.venv with torch + numpy + numba, or pass -DATLAS_PYTHON=<python> / set $ATLAS_PYTHON "
         "(the generators also import the team's software_models/, found via PYTHONPATH).")
     endif()
   endif()
