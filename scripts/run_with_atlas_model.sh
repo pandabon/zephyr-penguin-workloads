@@ -35,7 +35,7 @@ classify() {   # $1 = build dir; prints "<class>\t<line>" to $TMPD/<name>
         "$elf" 2>&1 </dev/null); rc=$?
   if   [ $rc -eq 124 ]; then res=TIMEOUT
   elif grep -q 'UNIMPLEMENTED' <<<"$out"; then res=UNIMPLEMENTED
-  elif [ $rc -eq 0 ] && grep -Eq 'ATLASUP .* PASS|ATLASISA .* PASS|ATLAS KERNELS=PASS|ALL TESTS PASSED|^PASS' <<<"$out" && ! grep -Eq 'FAIL|TIMEOUT' <<<"$out"; then res=PASS
+  elif [ $rc -eq 0 ] && grep -Eq 'ATLASUP .* PASS|ATLASISA .* PASS|ALL TESTS PASSED|^PASS' <<<"$out" && ! grep -Eq 'FAIL|TIMEOUT' <<<"$out"; then res=PASS
   elif grep -Eq 'halt_reason ?= ?1([^0-9]|$)' <<<"$out"; then res=ILLEGAL
   elif grep -q 'atlas-model: HAZARD' <<<"$out"; then res=HAZARD
   else res=FAIL; fi

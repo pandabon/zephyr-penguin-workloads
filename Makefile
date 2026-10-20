@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # make help                      the BSP's front door (build / run / doctor ...), see its list
-# make build APP=atlas/kernels   build one app for the Penguin SoC   (ELF: build/<app>/zephyr/zephyr.elf)
+# make build APP=basics/hello_world  build one app for the Penguin SoC   (ELF: build/<app>/zephyr/zephyr.elf)
 # make build APP=atlas/upstream CMAKE_ARGS=-DATLAS_TEST=saturn_atlas_pause_resume
 # make suite                     build (and run on Spike, if installed) every app in this repo
 # make suite BOARD=chipyard_penguin/penguin/vcu118_ta ARGS='-f atlas'

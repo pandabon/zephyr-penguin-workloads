@@ -11,16 +11,14 @@ published (see Credits).
 
 | Folder | What | Needs |
 |---|---|---|
-| `atlas/kernels/` | The Atlas team's first bring-up tests, ported to one Zephyr app (IMEM programs as arrays, Zephyr I/O, timeouts). | nothing |
 | `atlas/upstream/` | The Atlas/Saturn team's 22 host tests (`tests/saturn_atlas_*.c`, `atlas_alu_basic.c`) built from source, one test per build (`-DATLAS_TEST=<name>`). 13 build as they are; 9 need `torch` to generate golden data. | nothing (torch for 9) |
 | `atlas/isa/` | The Atlas team's 121 ISA-level baremetal tests (`baremetal/assembly/*.S`), assembled and wrapped in the team's own C harness at build time, one test per build (`-DATLAS_ISA_TEST=<name>`). | python venv (numpy, numba, torch) for the golden data |
 | `basics/` | `hello_world`, `timer`, `mt_rvv` (4 threads, each keeps its vector register across a yield): small bring-up checks, single hart. | nothing |
 | `saturn/benchmarks/` | 55 of Saturn's vector benchmarks as one Zephyr app (`-DSATURN_BENCH=<name>`). | nothing |
 | `executorch/mnist/` | A small ExecuTorch model (XNNPACK RVV kernels) on the SoC. **Opt-in.** | ExecuTorch + XNNPACK checkouts, `flatc`, python |
 | `third_party/tapeout-chipyard/` | The copied Atlas team sources those apps build. Same paths as in the tapeout-chipyard repo, so a checkout can replace it. Read `NOTICE`. | - |
-| `tests/rvv/` | Tests of the vector unit and the kernel's V state: `vlen` (VLEN/VLENB), `bf16` (Zvfbfmin/Zvfbfa), `ctx_switch` (V state across context switches; the stock fork fails 3 of 6 cases, expected). Moved from the BSP with their history (D35). | nothing |
-| `tests/linker/memregion/` | A linker-region check (an app section placed in a board memory region). Moved from the BSP with its history. | nothing |
-| `known_failures.yaml` | Scenarios expected to fail: `arch.riscv.rvv.ctx_switch` and `.lazy` (kernel bugs, see the file). | - |
+| `tests/rvv/ctx_switch_min/` | Minimal reproducer of the RVV context-switch bug (V state saved twice; the stock fork fails 2 of 3 cases, expected). Moved from the BSP with its history (D35). The larger `ctx_switch`, `vlen`, `bf16` and `memregion` tests were removed (self-written tests are kept scarce; see git history). | nothing |
+| `known_failures.yaml` | Scenarios expected to fail: `arch.riscv.rvv.ctx_switch_min` (kernel bug, see the file). | - |
 
 Each group is a folder with its own apps (`<group>/<app>/`) and its own opt-in dependencies; a new group never adds
 dependencies to the others.
@@ -47,12 +45,12 @@ pushed.
 ## Build and get ELFs
 
 ```sh
-make build APP=atlas/kernels                       # ELF: <workspace>/build/kernels/zephyr/zephyr.elf
+make build APP=basics/hello_world                  # ELF: <workspace>/build/hello_world/zephyr/zephyr.elf
 make build APP=atlas/upstream CMAKE_ARGS=-DATLAS_TEST=saturn_atlas_pause_resume
-make build APP=atlas/kernels BOARD=chipyard_penguin/penguin/vcu118_ta     # the FPGA variant
+make build APP=basics/hello_world BOARD=chipyard_penguin/penguin/vcu118_ta     # the FPGA variant
 ```
 
-(Plain `west build -b <board> atlas/kernels -d build/x` works too; the make targets print the command they run.)
+(Plain `west build -b <board> basics/hello_world -d build/x` works too; the make targets print the command they run.)
 The ELF is a normal Zephyr ELF (`zephyr.elf`, also `zephyr.bin`); hand it to whatever loads the board (for the
 FPGA: the TSI loader, e.g. `uart_tsi` from `penguin-bringup-tools`).
 
@@ -99,9 +97,9 @@ scripts/run_with_atlas_model.sh <model>/libatlas_spike.so <ws>/build/test-runner
 The script prints PASS / UNIMPLEMENTED (the model stops at a tensor or DMA operation: expected) / ILLEGAL (the
 model rejected an instruction, a model gap to check) / HAZARD (a timing-race test that reads IMEM while Atlas runs,
 which would hang real hardware) / FAIL / TIMEOUT. Status 2026-10-16 with the model at `atlas-spike-model`: of the
-14 buildable apps, 4 PASS (`atlas_alu_basic`, `vmem_smoke`, `buffered_optA_end_jal`, `buffered_optB_restart`),
-6 UNIMPLEMENTED (all DMA kernels), 3 ILLEGAL (`pause_resume`, `pi0_slice`, and `atlas/kernels`, whose summary is
-5 of 7 pass), 1 HAZARD (`buffered_lower_first`). None of that is a hardware verdict; the bench is.
+13 buildable apps, 4 PASS (`atlas_alu_basic`, `vmem_smoke`, `buffered_optA_end_jal`, `buffered_optB_restart`),
+6 UNIMPLEMENTED (all DMA kernels), 2 ILLEGAL (`pause_resume`, `pi0_slice`),
+1 HAZARD (`buffered_lower_first`). None of that is a hardware verdict; the bench is.
 
 ## Run the whole suite
 
@@ -240,8 +238,7 @@ returns (fault in `set_chunk_used`); the runner passes an empty span instead. `C
   `tests/` is BSD-3-Clause (Regents of the University of California; `LICENSE` there). The
   `generators/sp26-atlas-acc` part has **no licence file** upstream: fine for a private repo, to be cleared with the
   Atlas team before publication.
-* `atlas/kernels/` adapts the team's tests (credits in `src/main.c`, licence text `LICENSE.tapeout-chipyard`);
-  `atlas/upstream/` is our build glue around their sources. Our own files are Apache-2.0 (SPDX headers).
+* `atlas/upstream/` is our build glue around their sources. Our own files are Apache-2.0 (SPDX headers).
 * `executorch/mnist/` is derived from ExecuTorch's `examples/arm/executor_runner` (Meta Platforms, Inc. and Arm Limited,
   BSD-style licence of the ExecuTorch repo), as ported to RISC-V by Jonathan Lin in pandabon/zephyr-chipyard-sw, branch
   `exeggutorch` @ e12bfa38034 (`samples/exeggutorch/executor_runner`, `samples/exeggutorch/model/gen_pte.py`). Per-file
@@ -251,5 +248,6 @@ returns (fault in `set_chunk_used`); the runner passes an empty span instead. `C
   `samples/hello_world` (Wind River Systems, Apache-2.0). That repo has no LICENSE file (only the SPDX lines in the
   files): fine for a private repo, to be cleared before publication. Our changes (single hart, exit code, scenarios)
   are in the second commit of `basics/`.
-* History: `atlas/kernels` and `atlas/upstream` come with their full git history from
-  zephyr-chipyard-bsp `dev/main` d1cff22 (`samples/atlas_kernels`, `external/atlas_upstream`).
+* History: `atlas/upstream` comes with its full git history from zephyr-chipyard-bsp `dev/main` d1cff22
+  (`external/atlas_upstream`). `atlas/kernels` (our 7-in-1 compaction of the Atlas tests, ex `samples/atlas_kernels`) was
+  removed in favour of the faithful `atlas/upstream`; it stays in git history.

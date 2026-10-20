@@ -3,7 +3,7 @@
  *
  * Minimal reproducer for the Zephyr fork's RVV vl/vtype context-switch bug
  * (patch zephyr-chipyard-bsp patches/zephyr/0005; manual chapter 07). Smaller sibling of
- * tests/rvv/ctx_switch: one vector thread, one switch, one check.
+* (the larger ctx_switch test was removed): one vector thread, one switch, one check.
  *
  * The bug: when an interrupt switches threads, the fork saves the
  * interrupted thread's vector state twice (isr.S on entry, then switch.S).
