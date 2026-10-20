@@ -492,18 +492,33 @@ int main()
 #ifdef EXEC_HAVE_EXPECTED
 		if (i == 0)
 		{
-			// expected output is float32 (the .bin written by the export script)
-			if (exec_expected_size != n * sizeof(float))
+			// expected output has the output's own dtype (float32, or bf16 bit patterns), as written by
+			// the export script
+			const size_t esz = t.element_size();
+			if (exec_expected_size != n * esz)
 			{
-				printf("FAIL: expected size %u != output %zu bytes\n", exec_expected_size, n * sizeof(float));
+				printf("FAIL: expected size %u != output %zu bytes\n", exec_expected_size, n * esz);
 				g_rc = 1;
 				continue;
 			}
-			const float *exp = reinterpret_cast<const float *>(exec_expected);
+			auto expected_value = [&](size_t j) -> double {
+				if (t.scalar_type() == ScalarType::BFloat16)
+				{
+					uint16_t raw;
+					std::memcpy(&raw, exec_expected + j * 2, 2);
+					uint32_t bits = (uint32_t)raw << 16;
+					float v;
+					std::memcpy(&v, &bits, sizeof(float));
+					return v;
+				}
+				float v;
+				std::memcpy(&v, exec_expected + j * sizeof(float), sizeof(float));
+				return v;
+			};
 			double max_err = 0, max_exp = 0, err2 = 0, exp2 = 0;
 			for (size_t j = 0; j < n; ++j)
 			{
-				double o = tensor_value(t, j), e = exp[j];
+				double o = tensor_value(t, j), e = expected_value(j);
 				double d = std::fabs(o - e);
 				max_err = d > max_err ? d : max_err;
 				max_exp = std::fabs(e) > max_exp ? std::fabs(e) : max_exp;
