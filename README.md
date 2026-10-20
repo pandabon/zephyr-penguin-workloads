@@ -188,6 +188,23 @@ west build -d build/exec_fp32_chip -t run          # Spike, ISA derived from the
 Re-export: `python executorch/mnist/scripts/gen_model.py --precision bf16 --pte executorch/mnist/models/mnist_mlp_bf16.pte`.
 Twister/`make suite` scenarios (`workload.executorch.*`, tag `executorch`) are build-only and need the variables above.
 
+**In the maintainers' workspace** (`~/toolsC/bringup`) the verified build used:
+```sh
+export EXECUTORCH_DIR=~/toolsC/archive/zephyr-chipyard-sw/third-party/executorch   # read-only; has local changes, don't modify
+export XNNPACK_DIR=~/toolsC/archive/XNNPACK
+export FLATC_EXECUTABLE=~/miniforge3/envs/zephyr/bin/flatc PYTHON_EXECUTABLE=~/miniforge3/envs/zephyr/bin/python   # old env, read-only
+```
+
+**Running another model.**
+- **Same runner:** `-DEXEC_MODEL=/abs/path/model.pte` builds the existing runner with any `.pte`. This works as long as
+  every op in the model is either XNNPACK-delegated or in the runner's portable-kernel set.
+- **A model with its own export script, ops or memory needs** gets its own app next to this one,
+  `executorch/<name>/`. Copy `executorch/mnist/`'s structure (CMakeLists, prj.conf, src/, scripts/, models/ with a
+  `SOURCES.txt`) and keep it a separate app, with its dependencies opt-in.
+- **Memory:** the heap, the method pool and the planned-memory arena are set in `prj.conf` and `src/`. Everything must
+  fit in the board's DRAM node (256 MiB in the BSP devicetree today; a larger model needs a BSP change).
+- **Load time:** loading takes about `memsz*1.02/11520` s at 115200 baud; `.fast.elf` copies skip `.bss`.
+
 Expected output (fixed all-ones input; the values, not their meaning, are the check):
 ```
 I [executorch:...] Model PTE file loaded. Size: 106792 bytes.
