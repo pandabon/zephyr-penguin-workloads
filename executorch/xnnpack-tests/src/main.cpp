@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 //
-// Entry point for running one unmodified XNNPACK GoogleTest file on Zephyr. The test file itself
+// Entry point for running one unmodified XNNPACK GoogleTest file on Zephyr or bare metal (both build
+// modes of this app share this file). The test file itself
 // (XNNPACK test/<name>.cc) supplies the TEST()s; XNNPACK's CMake would link gtest_main, but that needs
 // a hosted environment, so this is the only code of ours: initialise GoogleTest, run, and leave through
-// the BSP so the host (Spike/uart_tsi) sees the result as the exit code.
+// the BSP (Zephyr) or HTIF (bare metal, baremetal/src/htif.c) so the host (Spike/uart_tsi) sees the
+// result as the exit code.
 //
 // Credits: the main() shape is GoogleTest's own gtest_main.cc (google/googletest, BSD-3-Clause);
 // chipyard_sim_exit usage as in executorch/smolvla/src/riscv_executor_runner.cpp of this repo.
@@ -11,11 +13,17 @@
 
 #include <gtest/gtest.h>
 
+#ifdef __ZEPHYR__
 #include <zephyr/toolchain.h>
 
 extern "C" {
 #include <chipyard/sim_exit.h>
 }
+#else
+// Bare metal: exit() runs picolibc's exit handlers and ends in _exit() = HTIF "tohost" write (htif.c).
+#include <stdlib.h>
+static inline void chipyard_sim_exit(int code) { exit(code); }
+#endif
 
 int main(void) {
   // No command line on the chip: pass the filter chosen at build time (XNN_TEST_FILTER, empty = all).
