@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# XNNPACK's own gtest files are OPT-IN workloads: they need XNNPACK_DIR and EXECUTORCH_DIR (googletest
+# + pthreadpool sources) set, or CMake stops at configure. Like the ExecuTorch apps, the tests carry the
+# tag `xnnpack-tests` (leave them out of a normal twister run with `twister -e xnnpack-tests`) and
+# `skip: true`, so the BSP's run_tests.py reports SKIP instead of failing at configure.
+# Build-only: the Spike run is `west build -t run`. One scenario per upstream test file
+# (copy others' tests faithfully, one upstream test = one scenario).
+sample:
+  name: penguin_xnnpack_tests
+  description: One unmodified XNNPACK upstream gtest file as a Zephyr app
+common:
+  build_only: true
+  tags: xnnpack-tests workload rvv
+  platform_allow:
+    - chipyard_penguin/penguin
+  harness: console
+  harness_config:
+    type: multi_line
+    regex:
+      - "\\[  PASSED  \\] "
+      - "ALL TESTS PASSED"
+tests:
+  workload.xnnpack_tests.f32_bf16_vcvt:
+    extra_args: XNN_TEST=f32-bf16-vcvt
+    skip: true
