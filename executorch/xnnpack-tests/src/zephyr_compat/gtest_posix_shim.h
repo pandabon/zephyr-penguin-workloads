@@ -20,6 +20,12 @@
 
 static inline int isatty(int) { return 0; }
 static inline int chdir(const char*) { errno = ENOSYS; return -1; }
-static inline char* getcwd(char*, size_t) { errno = ENOSYS; return nullptr; }
+// Zephyr has no file system, so there is no working directory; report "/". GoogleTest >= 2026 (d72f9c8aea68, the
+// version XNNPACK pins) aborts at start-up if getcwd() fails ("Failed to get the current working directory").
+static inline char* getcwd(char* buf, size_t size) {
+  if (buf == nullptr || size < 2) { errno = ERANGE; return nullptr; }
+  buf[0] = '/'; buf[1] = '\0';
+  return buf;
+}
 static inline int dup(int) { errno = ENOSYS; return -1; }
 static inline int dup2(int, int) { errno = ENOSYS; return -1; }
