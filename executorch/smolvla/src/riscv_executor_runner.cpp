@@ -16,6 +16,10 @@
  * expected output with error metrics and PASS/FAIL (EXEC_EXPECTED, EXEC_TOL), minstret/mcycle around
  * execute(), a report of XNNPACK's detected RISC-V vector config, and the two pools in .noinit.
  *
+ * STEP MODE (EXEC_STEP_MODE, written for this repo): the SmolVLA action-expert step. The .pte has two methods
+ * (smolvla-explore/export_expert_step.py): kv_proj runs once, denoise_step runs 10 times (lerobot's flow-matching Euler
+ * loop, x_t fed back); see run_step_mode() below.
+ *
  * Changes versus the exeggutorch version:
  *  - method_allocation_pool_size is a compile definition (ET_METHOD_POOL_SIZE, default 64 KiB;
  *    the MNIST MLP needs ~7 KB. The pool is a static array, so it is part of the loaded image).
@@ -28,6 +32,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <memory>
+#include <utility>
 #include <stdio.h>
 #include <unistd.h>
 #include <vector>
@@ -317,6 +322,206 @@ Result<BufferCleanup> prepare_input_tensors(Method &method, MemoryAllocator &all
 
 } // namespace
 
+#ifdef EXEC_STEP_MODE
+/*
+ * STEP MODE: the whole SmolVLA action-expert step on one .pte with two methods.
+ *
+ * Data layout (export_expert_step.py, "step_data.bin" / "step_expected.bin"):
+ *   step_data     : noise x_1 f32 [1,50,32] | time table f32 [10,720] | 16 bf16 [1,241,320] = kv_proj inputs
+ *                   (K1,V1,K3,V3,..K15,V15) | 16 bf16 [1,241,320] = prefix K/V of the self-attn layers (K0,V0,K2,..V14)
+ *   step_expected : final actions of the PyTorch lerobot-bf16 loop f32 | final actions of the fp32 loop f32 |
+ *                   x after each of the 10 steps of the bf16 loop (10 x f32 [1,50,32])
+ * kv_proj  : 16 inputs -> 16 f32 outputs [1,241,320] (k_proj(K), v_proj(V) of the 8 cross-attn layers).
+ * denoise_step: inputs x_t, time row, then K,V of layer 0..15 (cross-attn layers get kv_proj's outputs);
+ *               output x_t + dt * v_t.
+ * The measured window is exactly one Method::execute() call (minstret before/after). The set_input() copies (the
+ * method's inputs are memory-planned buffers that ExecuTorch may reuse once an input is dead, so every input is set
+ * again before every step) are outside it.
+ */
+namespace
+{
+constexpr size_t kLayers = 16, kSteps = 10, kChunk = 50, kAct = 32, kHidden = 720, kPrefix = 241, kKv = 320;
+constexpr size_t kXBytes = kChunk * kAct * sizeof(float);                // 6400
+constexpr size_t kTimeBytes = kSteps * kHidden * sizeof(float);          // 28800
+constexpr size_t kKvBytes = kPrefix * kKv * sizeof(uint16_t);            // one bf16 prefix K or V
+constexpr size_t kOffTime = kXBytes, kOffKvIn = kOffTime + kTimeBytes, kOffSelf = kOffKvIn + 16 * kKvBytes;
+constexpr size_t kDataSize = kOffSelf + 16 * kKvBytes;
+constexpr size_t kExpSize = (2 + kSteps) * kXBytes;
+
+struct Loaded
+{
+	std::vector<Span<uint8_t>> spans;
+	std::unique_ptr<HierarchicalAllocator> planned;
+	std::unique_ptr<MemoryManager> manager;
+	std::unique_ptr<Method> method;
+	size_t planned_bytes = 0;
+};
+
+bool load_named(Program &program, const char *name, MemoryAllocator &method_alloc, MemoryAllocator &temp_alloc,
+				Loaded &out)
+{
+	Result<MethodMeta> meta = program.method_meta(name);
+	if (!meta.ok())
+	{
+		printf("FAIL: no method %s (0x%x)\n", name, (unsigned)meta.error());
+		return false;
+	}
+	for (size_t id = 0; id < meta->num_memory_planned_buffers(); ++id)
+	{
+		size_t n = static_cast<size_t>(meta->memory_planned_buffer_size(id).get());
+		uint8_t *b = reinterpret_cast<uint8_t *>(method_alloc.allocate(n));
+		if (b == nullptr)
+		{
+			printf("FAIL: method pool too small for %s planned buffer %zu (%zu bytes); raise ET_METHOD_POOL_SIZE\n", name,
+				   id, n);
+			return false;
+		}
+		out.spans.push_back({b, n});
+		out.planned_bytes += n;
+	}
+	out.planned = std::make_unique<HierarchicalAllocator>(Span<Span<uint8_t>>(out.spans.data(), out.spans.size()));
+	out.manager = std::make_unique<MemoryManager>(&method_alloc, out.planned.get(), &temp_alloc);
+	Result<Method> m = program.load_method(name, out.manager.get());
+	if (!m.ok())
+	{
+		printf("FAIL: load_method(%s) = 0x%x\n", name, (unsigned)m.error());
+		return false;
+	}
+	out.method = std::make_unique<Method>(std::move(m.get()));
+	printf("loaded method %s: %zu inputs, %zu outputs, planned memory %zu bytes\n", name, out.method->inputs_size(),
+		   out.method->outputs_size(), out.planned_bytes);
+	return true;
+}
+
+// Set input i of `m` from raw data (shape and dtype from the method's own metadata); ExecuTorch copies it.
+Error set_in(Method &m, size_t i, const void *data)
+{
+	MethodMeta mm = m.method_meta();
+	auto info = mm.input_tensor_meta(i);
+	ET_CHECK_OK_OR_RETURN_ERROR(info.error());
+	TensorImpl impl(info->scalar_type(), info->sizes().size(), const_cast<TensorImpl::SizesType *>(info->sizes().data()),
+					const_cast<void *>(data), const_cast<TensorImpl::DimOrderType *>(info->dim_order().data()));
+	Tensor t(&impl);
+	return m.set_input(t, i);
+}
+
+double rel_l2(const float *a, const float *ref, size_t n)
+{
+	double e = 0, r = 0;
+	for (size_t j = 0; j < n; ++j)
+	{
+		double d = (double)a[j] - (double)ref[j];
+		e += d * d;
+		r += (double)ref[j] * (double)ref[j];
+	}
+	return std::sqrt(e) / std::sqrt(r);
+}
+} // namespace
+
+static int run_step_mode(Program &program)
+{
+	if (step_data_size != kDataSize || step_expected_size != kExpSize)
+	{
+		printf("FAIL: step data sizes %u / %u, expected %zu / %zu\n", step_data_size, step_expected_size, kDataSize,
+			   kExpSize);
+		return 1;
+	}
+	RiscvMemoryAllocator method_alloc(method_allocation_pool_size, method_allocation_pool);
+	RiscvMemoryAllocator temp_alloc(temp_allocation_pool_size, temp_allocation_pool);
+	Loaded kv, dn;
+	if (!load_named(program, "kv_proj", method_alloc, temp_alloc, kv) ||
+		!load_named(program, "denoise_step", method_alloc, temp_alloc, dn))
+		return 1;
+	printf("method pool used after loading both methods: %zu of %zu bytes\n", method_alloc.used_size(),
+		   method_allocation_pool_size);
+	if (kv.method->inputs_size() != 16 || kv.method->outputs_size() != 16 || dn.method->inputs_size() != 34 ||
+		dn.method->outputs_size() != 1)
+	{
+		printf("FAIL: unexpected method signatures\n");
+		return 1;
+	}
+
+	const uint8_t *data = step_data;
+	const float *exp_final = reinterpret_cast<const float *>(step_expected);
+	const float *exp_fp32 = exp_final + kChunk * kAct;
+	const float *exp_steps = exp_fp32 + kChunk * kAct;
+
+	// ---- kv_proj, once ----
+	for (size_t i = 0; i < 16; ++i)
+		if (set_in(*kv.method, i, data + kOffKvIn + i * kKvBytes) != Error::Ok)
+		{
+			printf("FAIL: kv_proj set_input %zu\n", i);
+			return 1;
+		}
+	uint64_t i0 = read_minstret();
+	Error st = kv.method->execute();
+	uint64_t kv_instret = read_minstret() - i0;
+	printf("STEP kv_proj: minstret delta = %" PRIu64 " status=0x%x\n", kv_instret, (unsigned)st);
+	if (st != Error::Ok)
+		return 1;
+	std::vector<EValue> kvo(16);
+	if (kv.method->get_outputs(kvo.data(), kvo.size()) != Error::Ok)
+		return 1;
+
+	// ---- denoise_step x 10 ----
+	static float xbuf[kChunk * kAct];
+	std::memcpy(xbuf, data, kXBytes);
+	uint64_t dn_total = 0;
+	double worst_step = 0;
+	for (size_t step = 0; step < kSteps; ++step)
+	{
+		bool ok = set_in(*dn.method, 0, xbuf) == Error::Ok &&
+				  set_in(*dn.method, 1, data + kOffTime + step * kHidden * sizeof(float)) == Error::Ok;
+		for (size_t l = 0; ok && l < kLayers; ++l)
+			for (size_t j = 0; ok && j < 2; ++j)
+			{
+				size_t in_idx = 2 + 2 * l + j, pair = 2 * (l / 2) + j;
+				if (l % 2 == 1) // cross-attn layer: kv_proj's output for this layer
+					ok = dn.method->set_input(kvo[pair], in_idx) == Error::Ok;
+				else // self-attn layer: the prefix K/V as they are
+					ok = set_in(*dn.method, in_idx, data + kOffSelf + pair * kKvBytes) == Error::Ok;
+			}
+		if (!ok)
+		{
+			printf("FAIL: denoise_step set_input (step %zu)\n", step);
+			return 1;
+		}
+		uint64_t s0 = read_minstret();
+		st = dn.method->execute();
+		uint64_t d = read_minstret() - s0;
+		dn_total += d;
+		if (st != Error::Ok)
+		{
+			printf("FAIL: denoise_step execute step %zu status 0x%x\n", step, (unsigned)st);
+			return 1;
+		}
+		std::vector<EValue> o(1);
+		if (dn.method->get_outputs(o.data(), 1) != Error::Ok)
+			return 1;
+		const Tensor ot = o[0].toTensor();
+		std::memcpy(xbuf, ot.const_data_ptr<float>(), kXBytes);
+		double r = rel_l2(xbuf, exp_steps + step * kChunk * kAct, kChunk * kAct);
+		worst_step = r > worst_step ? r : worst_step;
+		printf("STEP denoise %zu: minstret delta = %" PRIu64 "  relL2 of x vs PyTorch lerobot-bf16 = %e\n", step + 1, d, r);
+	}
+
+	double r_bf16 = rel_l2(xbuf, exp_final, kChunk * kAct), r_fp32 = rel_l2(xbuf, exp_fp32, kChunk * kAct);
+	bool finite = true;
+	for (size_t j = 0; j < kChunk * kAct; ++j)
+		finite = finite && std::isfinite(xbuf[j]);
+	printf("kv_proj minstret = %" PRIu64 "\n", kv_instret);
+	printf("denoise_step minstret total (10 steps) = %" PRIu64 ", per step mean = %" PRIu64 "\n", dn_total,
+		   dn_total / kSteps);
+	printf("TOTAL action step (kv_proj + 10 denoise_step) minstret = %" PRIu64 "\n", kv_instret + dn_total);
+	printf("final actions[0..3] = %f %f %f %f\n", xbuf[0], xbuf[1], xbuf[2], xbuf[3]);
+	printf("final actions relL2 vs PyTorch lerobot-bf16 = %e (tol %e), vs PyTorch fp32 = %e\n", r_bf16, (double)EXEC_TOL,
+		   r_fp32);
+	bool pass = finite && r_bf16 < (double)EXEC_TOL;
+	printf("%s\n", pass ? "PASS" : "FAIL");
+	return pass ? 0 : 1;
+}
+#endif // EXEC_STEP_MODE
+
 static int g_rc = 1; // 0 only after "Model executed successfully"
 int main()
 {
@@ -333,6 +538,14 @@ int main()
 	{
 		ET_LOG(Info, "Program loading failed @ 0x%p: 0x%" PRIx32, model_pte, program.error());
 	}
+#ifdef EXEC_STEP_MODE
+	if (!program.ok())
+		chipyard_sim_exit(1);
+	g_rc = run_step_mode(*program);
+	ET_LOG(Info, "Program complete, exiting.");
+	ET_LOG(Info, "\04");
+	chipyard_sim_exit(g_rc);
+#endif
 
 	ET_LOG(Info, "Model buffer loaded, has %lu methods", program->num_methods());
 

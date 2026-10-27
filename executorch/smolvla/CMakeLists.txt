@@ -17,6 +17,13 @@
 #           -DEXEC_EXPECTED=/path/exp.bin expected output 0 (same dtype as the model output)
 #           -DEXEC_TOL=1e-4               pass if relative L2 error < EXEC_TOL
 #           -DET_METHOD_POOL_SIZE=bytes -DET_TEMP_POOL_SIZE=bytes   (see src/riscv_executor_runner.cpp)
+#           -DEXEC_EMBED=incbin           embed the files with an assembler .incbin instead of a generated C array
+#                                         (needed for big models: a 200 MB .pte as a C array is ~1 GB of CMake string work
+#                                         and C source; .incbin is a plain file copy at assemble time)
+#           -DEXEC_STEP_DATA=/path/a.bin -DEXEC_STEP_EXPECTED=/path/b.bin
+#                                         STEP MODE (SmolVLA action step: .pte with methods kv_proj + denoise_step, written by
+#                                         smolvla-explore/export_expert_step.py): run kv_proj once and denoise_step 10 times,
+#                                         compare the final actions; EXEC_INPUTS / EXEC_EXPECTED are not used
 #
 # Derived from executorch/mnist in this repo (same CMake opt-in/mirror scheme; adds the embedded
 # input/expected arrays). That app is derived from the following:
@@ -67,9 +74,15 @@ endif()
 set(_pte "${EXEC_MODEL}")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_pte}")
 
+set(EXEC_EMBED "hex" CACHE STRING "How files are embedded: hex (generated C array) or incbin (assembler .incbin)")
+set(EXEC_STEP_DATA "" CACHE STRING "Step mode: runner inputs (.step_data.bin)")
+set(EXEC_STEP_EXPECTED "" CACHE STRING "Step mode: golden outputs (.step_expected.bin)")
+
 # A file -> C array in section SEC (placed by custom-sections.ld). Done at configure time with
 # CMake only (file(READ ... HEX)), so the build needs no extra python.
-function(_embed_bin FILE SYM SEC OUT)
+# Fine for small files (MNIST, one expert layer of 12 MB); for a 200 MB model the hex string alone is 400 MB and
+# the C source ~1.2 GB (6 characters per byte), all built in CMake strings. Use EXEC_EMBED=incbin for those.
+function(_embed_hex FILE SYM SEC OUT)
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${FILE}")
   file(READ "${FILE}" _hex HEX)
   string(LENGTH "${_hex}" _hexlen)
@@ -81,23 +94,67 @@ function(_embed_bin FILE SYM SEC OUT)
     "const unsigned int ${SYM}_size = ${_size};\n")
 endfunction()
 
+# The same two symbols from an assembler file: `.incbin` makes the assembler copy the file into the section, so
+# nothing is read or converted at configure time. Same section flags GCC gives a `const` array ("a" = allocated,
+# read-only), 16-byte aligned, and a 32-bit `<SYM>_size` word (the C array version has `const unsigned int`).
+# The object depends on the file (OBJECT_DEPENDS), so changing the model rebuilds it.
+function(_embed_incbin FILE SYM SEC OUT)
+  file(WRITE "${OUT}"
+    "/* generated; embeds ${FILE} */\n"
+    "\t.section ${SEC},\"a\",@progbits\n"
+    "\t.balign 16\n"
+    "\t.global ${SYM}\n"
+    "${SYM}:\n"
+    "\t.incbin \"${FILE}\"\n"
+    "${SYM}_end:\n"
+    "\t.balign 4\n"
+    "\t.global ${SYM}_size\n"
+    "${SYM}_size:\n"
+    "\t.word ${SYM}_end - ${SYM}\n")
+  set_source_files_properties("${OUT}" PROPERTIES OBJECT_DEPENDS "${FILE}")
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${FILE}")
+endfunction()
+
+# _embed_bin(FILE SYM SEC OUT_BASE): writes OUT_BASE.c or OUT_BASE.S depending on EXEC_EMBED; sets _embed_out to the file.
+function(_embed_bin FILE SYM SEC OUT_BASE)
+  if(EXEC_EMBED STREQUAL "incbin")
+    _embed_incbin("${FILE}" "${SYM}" "${SEC}" "${OUT_BASE}.S")
+    set(_embed_out "${OUT_BASE}.S" PARENT_SCOPE)
+  elseif(EXEC_EMBED STREQUAL "hex")
+    _embed_hex("${FILE}" "${SYM}" "${SEC}" "${OUT_BASE}.c")
+    set(_embed_out "${OUT_BASE}.c" PARENT_SCOPE)
+  else()
+    message(FATAL_ERROR "EXEC_EMBED must be hex or incbin (got '${EXEC_EMBED}')")
+  endif()
+endfunction()
+
 # like exeggutorch's pte_to_header.py
-_embed_bin("${_pte}" model_pte network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/model_pte.c")
-set(_embedded ${CMAKE_CURRENT_BINARY_DIR}/model_pte.c)
+_embed_bin("${_pte}" model_pte network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/model_pte")
+set(_embedded ${_embed_out})
+if(EXEC_STEP_DATA)
+  if(NOT EXISTS "${EXEC_STEP_DATA}" OR NOT EXISTS "${EXEC_STEP_EXPECTED}")
+    message(FATAL_ERROR "step mode needs existing EXEC_STEP_DATA and EXEC_STEP_EXPECTED")
+  endif()
+  _embed_bin("${EXEC_STEP_DATA}" step_data network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/step_data")
+  list(APPEND _embedded ${_embed_out})
+  _embed_bin("${EXEC_STEP_EXPECTED}" step_expected network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/step_expected")
+  list(APPEND _embedded ${_embed_out})
+  add_compile_definitions(EXEC_STEP_MODE=1)
+endif()
 if(EXEC_INPUTS)
   if(NOT EXISTS "${EXEC_INPUTS}")
     message(FATAL_ERROR "EXEC_INPUTS '${EXEC_INPUTS}' not found")
   endif()
-  _embed_bin("${EXEC_INPUTS}" exec_inputs network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/exec_inputs.c")
-  list(APPEND _embedded ${CMAKE_CURRENT_BINARY_DIR}/exec_inputs.c)
+  _embed_bin("${EXEC_INPUTS}" exec_inputs network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/exec_inputs")
+  list(APPEND _embedded ${_embed_out})
   add_compile_definitions(EXEC_HAVE_INPUTS=1)
 endif()
 if(EXEC_EXPECTED)
   if(NOT EXEC_INPUTS OR NOT EXISTS "${EXEC_EXPECTED}")
     message(FATAL_ERROR "EXEC_EXPECTED needs an existing file and EXEC_INPUTS")
   endif()
-  _embed_bin("${EXEC_EXPECTED}" exec_expected network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/exec_expected.c")
-  list(APPEND _embedded ${CMAKE_CURRENT_BINARY_DIR}/exec_expected.c)
+  _embed_bin("${EXEC_EXPECTED}" exec_expected network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/exec_expected")
+  list(APPEND _embedded ${_embed_out})
   add_compile_definitions(EXEC_HAVE_EXPECTED=1)
 endif()
 add_compile_definitions(EXEC_TOL=${EXEC_TOL})
