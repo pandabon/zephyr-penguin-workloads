@@ -14,7 +14,7 @@ manifest:
       # Pinned to the post-restructure BSP (README layout, mk/user.mk, spike_runner.py). That commit
       # is only local until the BSP restructure is pushed: then replace this SHA with the pushed
       # one (the suite runner also needs the BSP change "run_tests: --root", branch dev/workloads-support).
-      revision: d1cff222b53cbed0253468d706d219c9762d3a68
+      revision: 10fc32125a4ac54ac7cff4095ec73434b12917a6
       import: true                # also fetches Zephyr at the SHA the BSP pins
   self:
     path: penguin-workloads

@@ -165,7 +165,7 @@ tests:
     tags: fp8
     extra_args: SATURN_BENCH=vec-mx-scale
   saturn.vec-mx-unary:
-    # Needs zvfofp8min in Spike's --isa (the chip has it): the BSP adds it via SPIKE_ISA_EXTRA since cfdcd0f.
+    # Needs zvfofp8min in Spike's --isa (the chip has it): the BSP adds it via SPIKE_ISA_EXTRA since 80ae1e9.
     tags: bench
     extra_args: SATURN_BENCH=vec-mx-unary
   saturn.vec-pathfinder:

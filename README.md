@@ -142,7 +142,7 @@ for b in $(ls third_party/saturn-vectors/benchmarks | grep -E '^vec-|_test'); do
   west build -d build/saturn/$b -t run >build/saturn/$b.log 2>&1; echo "$b rc=$?"
 done
 ```
-Expected: 41 pass (`vec-mx-unary` too, since the BSP's Spike ISA includes `zvfofp8min`, BSP cfdcd0f); `vec-spmv` and `vec-conjugate-gradient` pass since the Ara helper sets vtype inside its inline asm (they failed under GCC 14.3 before); the 14 FP8 /
+Expected: 41 pass (`vec-mx-unary` too, since the BSP's Spike ISA includes `zvfofp8min`, BSP 80ae1e9); `vec-spmv` and `vec-conjugate-gradient` pass since the Ara helper sets vtype inside its inline asm (they failed under GCC 14.3 before); the 14 FP8 /
 bf16-reduction ones trap on Spike by design (`build_only` in `saturn/benchmarks/testcase.yaml`, run them on the FPGA). The
 BSP's `scripts/run_tests.py` reads `testcase.yaml` files only inside the BSP; point it at `saturn/benchmarks/testcase.yaml`
 once it has a `--root` option (proposed).
@@ -169,7 +169,7 @@ them CMake stops at configure with a message listing what is missing, and the re
 | ExecuTorch checkout, directory **named `executorch`** | `EXECUTORCH_DIR` | pandabon/executorch branch `zephyr-1.0.1-bf16` @ `c19e05968e8d` (ExecuTorch 1.0.1 + bf16/RVV changes) |
 | XNNPACK checkout | `XNNPACK_DIR` (optional if `EXECUTORCH_DIR/backends/xnnpack/third-party/XNNPACK` works) | pandabon/XNNPACK branch `torch-1.0.0-bump-bf16` @ `c0d34218458` (RVV, Zvfbfmin, Zvfbfa kernels) |
 | `flatc` and `python3` with `torchgen`, `pyyaml` | on `PATH`, or `FLATC_EXECUTABLE`, `PYTHON_EXECUTABLE` | an environment with flatc, torch 2.9.1, executorch 1.0.1 |
-| the BSP and its SDK environment | your BSP workspace (`west`) | zephyr-chipyard-bsp `dev/main` d1cff22, SDK 1.0.0-beta1 |
+| the BSP and its SDK environment | your BSP workspace (`west`) | zephyr-chipyard-bsp `dev/main` 10fc321, SDK 1.0.0-beta1 |
 
 Only `executorch/mnist/scripts/gen_model.py` needs the `executorch`/`torch` python packages (to re-export a model);
 building does not. The CMake builds ExecuTorch through a symlink mirror in the build directory, so flatcc's build outputs
@@ -265,6 +265,6 @@ returns (fault in `set_chunk_used`); the runner passes an empty span instead. `C
   `samples/hello_world` (Wind River Systems, Apache-2.0). That repo has no LICENSE file (only the SPDX lines in the
   files): fine for a private repo, to be cleared before publication. Our changes (single hart, exit code, scenarios)
   are in the second commit of `basics/`.
-* History: `atlas/upstream` comes with its full git history from zephyr-chipyard-bsp `dev/main` d1cff22
+* History: `atlas/upstream` comes with its full git history from zephyr-chipyard-bsp `dev/main` 10fc321
   (`external/atlas_upstream`). `atlas/kernels` (our 7-in-1 compaction of the Atlas tests, ex `samples/atlas_kernels`) was
   removed in favour of the faithful `atlas/upstream`; it stays in git history.
