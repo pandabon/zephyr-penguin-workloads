@@ -24,6 +24,10 @@
 #                                         STEP MODE (SmolVLA action step: .pte with methods kv_proj + denoise_step, written by
 #                                         smolvla-explore/export_expert_step.py): run kv_proj once and denoise_step 10 times,
 #                                         compare the final actions; EXEC_INPUTS / EXEC_EXPECTED are not used
+#           -DEXEC_CHAIN_DATA=/path/a.bin -DEXEC_CHAIN_EXPECTED=/path/b.bin
+#                                         CHAIN MODE (SmolVLA mini chain: .pte with methods vision, vlm, kv_proj, denoise_step, written by
+#                                         smolvla-explore/export_mini_chain.py): run them once in that order on the target (denoise_step
+#                                         looped), print instructions per method and check every stage; not combinable with step mode
 #
 # Derived from executorch/mnist in this repo (same CMake opt-in/mirror scheme; adds the embedded
 # input/expected arrays). That app is derived from the following:
@@ -77,6 +81,8 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_pte}")
 set(EXEC_EMBED "hex" CACHE STRING "How files are embedded: hex (generated C array) or incbin (assembler .incbin)")
 set(EXEC_STEP_DATA "" CACHE STRING "Step mode: runner inputs (.step_data.bin)")
 set(EXEC_STEP_EXPECTED "" CACHE STRING "Step mode: golden outputs (.step_expected.bin)")
+set(EXEC_CHAIN_DATA "" CACHE STRING "Chain mode: runner inputs (.chain_data.bin)")
+set(EXEC_CHAIN_EXPECTED "" CACHE STRING "Chain mode: golden stages (.chain_expected.bin)")
 
 # A file -> C array in section SEC (placed by custom-sections.ld). Done at configure time with
 # CMake only (file(READ ... HEX)), so the build needs no extra python.
@@ -140,6 +146,19 @@ if(EXEC_STEP_DATA)
   _embed_bin("${EXEC_STEP_EXPECTED}" step_expected network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/step_expected")
   list(APPEND _embedded ${_embed_out})
   add_compile_definitions(EXEC_STEP_MODE=1)
+endif()
+if(EXEC_CHAIN_DATA)
+  if(EXEC_STEP_DATA)
+    message(FATAL_ERROR "EXEC_CHAIN_DATA and EXEC_STEP_DATA are separate modes; give one")
+  endif()
+  if(NOT EXISTS "${EXEC_CHAIN_DATA}" OR NOT EXISTS "${EXEC_CHAIN_EXPECTED}")
+    message(FATAL_ERROR "chain mode needs existing EXEC_CHAIN_DATA and EXEC_CHAIN_EXPECTED")
+  endif()
+  _embed_bin("${EXEC_CHAIN_DATA}" chain_data network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/chain_data")
+  list(APPEND _embedded ${_embed_out})
+  _embed_bin("${EXEC_CHAIN_EXPECTED}" chain_expected network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/chain_expected")
+  list(APPEND _embedded ${_embed_out})
+  add_compile_definitions(EXEC_CHAIN_MODE=1)
 endif()
 if(EXEC_INPUTS)
   if(NOT EXISTS "${EXEC_INPUTS}")

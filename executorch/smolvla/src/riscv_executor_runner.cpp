@@ -20,6 +20,11 @@
  * (smolvla-explore/export_expert_step.py): kv_proj runs once, denoise_step runs 10 times (lerobot's flow-matching Euler
  * loop, x_t fed back); see run_step_mode() below.
  *
+ * CHAIN MODE (EXEC_CHAIN_MODE, written for this repo): the SmolVLA "mini chain" (smolvla-explore/mini_chain.py,
+ * export_mini_chain.py): one .pte with four methods - vision, vlm, kv_proj, denoise_step - run once in order, each method's
+ * outputs fed to the next one on the target; execute() instructions per method call and a check of every stage against the
+ * PyTorch reference; see run_chain_mode() below.
+ *
  * Changes versus the exeggutorch version:
  *  - method_allocation_pool_size is a compile definition (ET_METHOD_POOL_SIZE, default 64 KiB;
  *    the MNIST MLP needs ~7 KB. The pool is a static array, so it is part of the loaded image).
@@ -34,6 +39,7 @@
 #include <memory>
 #include <utility>
 #include <stdio.h>
+#include <string>
 #include <unistd.h>
 #include <vector>
 
@@ -322,9 +328,10 @@ Result<BufferCleanup> prepare_input_tensors(Method &method, MemoryAllocator &all
 
 } // namespace
 
-#ifdef EXEC_STEP_MODE
+#if defined(EXEC_STEP_MODE) || defined(EXEC_CHAIN_MODE)
 /*
  * STEP MODE: the whole SmolVLA action-expert step on one .pte with two methods.
+ * (Chain mode, further below, reuses the helpers of this block: Loaded, load_named, set_in, rel_l2.)
  *
  * Data layout (export_expert_step.py, "step_data.bin" / "step_expected.bin"):
  *   step_data     : noise x_1 f32 [1,50,32] | time table f32 [10,720] | 16 bf16 [1,241,320] = kv_proj inputs
@@ -424,7 +431,9 @@ double rel_l2(const float *a, const float *ref, size_t n)
 	return std::sqrt(e) / std::sqrt(r);
 }
 } // namespace
+#endif // EXEC_STEP_MODE || EXEC_CHAIN_MODE
 
+#ifdef EXEC_STEP_MODE
 static int run_step_mode(Program &program)
 {
 	if (step_data_size != kDataSize || step_expected_size != kExpSize)
@@ -544,6 +553,228 @@ static int run_step_mode(Program &program)
 }
 #endif // EXEC_STEP_MODE
 
+#ifdef EXEC_CHAIN_MODE
+/*
+ * CHAIN MODE: the SmolVLA mini chain (smolvla-explore/mini_chain.py), four methods in one .pte, run once in this order:
+ *   vision(pixels) -> image tokens;  vlm(image tokens, host embeddings, RoPE tables, bias) -> K0,V0,K1,V1,..;
+ *   kv_proj(K,V of the cross-attention layers) -> projected K/V;  denoise_step x `steps` (flow matching Euler loop, x fed back).
+ * Every method's output is passed to the next one's input with set_input(EValue), nothing leaves the target in between.
+ *
+ * Data (mini_chain.write_chain_data / write_chain_expected): a 32-byte header (u32 magic "MCH1", steps, layers, P, 4 x 0), then
+ * the tensors, each padded to 16 bytes. Their sizes come from the methods' own metadata, so the same runner serves any P,
+ * layer count or step count. chain_data: pixels | language emb | state emb | VLM sin | cos | bias | noise | time table
+ * f32 [steps,720] | prefix_bias | expert sin | cos. chain_expected: image tokens | K0,V0,K1,V1,.. | x after each step |
+ * the fp32 chain's final actions (reported only).
+ * PASS = every K/V and the final actions within EXEC_TOL of the bf16 PyTorch reference (image tokens are reported, not gated:
+ * their error shows in K/V). The measured window is one Method::execute() call; set_input() copies are outside it.
+ */
+namespace
+{
+constexpr uint32_t kChainMagic = 0x3148434D;
+constexpr size_t kTimeRow = kHidden * sizeof(float);
+
+struct Cursor // walks a blob of 16-byte padded parts
+{
+	const uint8_t *base;
+	size_t off;
+	const uint8_t *take(size_t n)
+	{
+		const uint8_t *p = base + off;
+		off += (n + 15) / 16 * 16;
+		return p;
+	}
+};
+
+size_t in_bytes(Method &m, size_t i) { return m.method_meta().input_tensor_meta(i)->nbytes(); }
+size_t out_bytes(Method &m, size_t i) { return m.method_meta().output_tensor_meta(i)->nbytes(); }
+
+// rel L2 of a method output against expected bytes in the output's own dtype (f32 or bf16 bit patterns)
+double rel_l2_tensor(const Tensor &t, const uint8_t *exp)
+{
+	double e = 0, r = 0;
+	for (size_t j = 0; j < (size_t)t.numel(); ++j)
+	{
+		double x;
+		if (t.scalar_type() == ScalarType::BFloat16)
+		{
+			uint32_t bits = (uint32_t)reinterpret_cast<const uint16_t *>(exp)[j] << 16;
+			float f;
+			std::memcpy(&f, &bits, sizeof f);
+			x = f;
+		}
+		else
+			x = reinterpret_cast<const float *>(exp)[j];
+		double d = (double)tensor_value(t, j) - x;
+		e += d * d;
+		r += x * x;
+	}
+	return std::sqrt(e) / std::sqrt(r);
+}
+} // namespace
+
+static int run_chain_mode(Program &program)
+{
+	if (chain_data_size < 32 || chain_expected_size < 32)
+	{
+		printf("FAIL: chain data missing\n");
+		return 1;
+	}
+	const uint32_t *hd = reinterpret_cast<const uint32_t *>(chain_data), *he = reinterpret_cast<const uint32_t *>(chain_expected);
+	if (hd[0] != kChainMagic || he[0] != kChainMagic || hd[1] != he[1] || hd[2] != he[2] || hd[3] != he[3])
+	{
+		printf("FAIL: chain data / expected headers differ or have a wrong magic\n");
+		return 1;
+	}
+	const size_t steps = hd[1], layers = hd[2], prefix = hd[3], n_cross = layers / 2;
+	printf("chain: %zu layers, %zu denoise steps, prefix P = %zu\n", layers, steps, prefix);
+
+	RiscvMemoryAllocator method_alloc(method_allocation_pool_size, method_allocation_pool);
+	RiscvMemoryAllocator temp_alloc(temp_allocation_pool_size, temp_allocation_pool);
+	Loaded vis, vlm, kvp, dn;
+	if (!load_named(program, "vision", method_alloc, temp_alloc, vis) || !load_named(program, "vlm", method_alloc, temp_alloc, vlm) ||
+		!load_named(program, "kv_proj", method_alloc, temp_alloc, kvp) ||
+		!load_named(program, "denoise_step", method_alloc, temp_alloc, dn))
+		return 1;
+	printf("method pool used after loading the four methods: %zu of %zu bytes\n", method_alloc.used_size(),
+		   method_allocation_pool_size);
+	Method &V = *vis.method, &L = *vlm.method, &K = *kvp.method, &D = *dn.method;
+	if (V.inputs_size() != 1 || V.outputs_size() != 1 || L.inputs_size() != 6 || L.outputs_size() != 2 * layers ||
+		K.inputs_size() != 2 * n_cross || K.outputs_size() != 2 * n_cross || D.inputs_size() != kFirstKv + 2 * layers ||
+		D.outputs_size() != 1 || in_bytes(D, 1) != kTimeRow || in_bytes(D, 2) != prefix * sizeof(float))
+	{
+		printf("FAIL: unexpected method signatures\n");
+		return 1;
+	}
+
+	// ---- slice the data (sizes from the methods' metadata)
+	Cursor dc{chain_data, 32}, ec{chain_expected, 32};
+	const uint8_t *pix = dc.take(in_bytes(V, 0)), *lang = dc.take(in_bytes(L, 1)), *state = dc.take(in_bytes(L, 2)),
+				  *vsin = dc.take(in_bytes(L, 3)), *vcos = dc.take(in_bytes(L, 4)), *vbias = dc.take(in_bytes(L, 5)),
+				  *noise = dc.take(in_bytes(D, 0)), *times = dc.take(steps * kTimeRow), *pbias = dc.take(in_bytes(D, 2)),
+				  *esin = dc.take(in_bytes(D, 3)), *ecos = dc.take(in_bytes(D, 4));
+	const uint8_t *x_img = ec.take(out_bytes(V, 0));
+	std::vector<const uint8_t *> x_kv, x_steps;
+	for (size_t i = 0; i < 2 * layers; ++i)
+		x_kv.push_back(ec.take(out_bytes(L, i)));
+	for (size_t s = 0; s < steps; ++s)
+		x_steps.push_back(ec.take(out_bytes(D, 0)));
+	const uint8_t *x_fp32 = ec.take(out_bytes(D, 0));
+	if (dc.off != chain_data_size || ec.off != chain_expected_size)
+	{
+		printf("FAIL: chain data sizes %zu / %zu bytes, the methods need %zu / %zu\n", (size_t)chain_data_size,
+			   (size_t)chain_expected_size, dc.off, ec.off);
+		return 1;
+	}
+
+	struct Row
+	{
+		std::string name; // a copy: callers pass a reused stack buffer
+		uint64_t instr;
+	};
+	std::vector<Row> rows;
+	auto run = [&](Method &m, const char *name) {
+		uint64_t i0 = read_minstret();
+		Error st = m.execute();
+		uint64_t d = read_minstret() - i0;
+		rows.push_back({name, d});
+		printf("CHAIN %s: minstret delta = %" PRIu64 " status=0x%x\n", name, d, (unsigned)st);
+		return st == Error::Ok;
+	};
+	bool pass = true;
+	auto stage = [&](const char *name, const Tensor &t, const uint8_t *exp, bool gated) {
+		double r = rel_l2_tensor(t, exp);
+		bool ok = std::isfinite(r) && r <= (double)EXEC_TOL;
+		printf("STAGE %-14s relL2 vs PyTorch bf16 chain = %e  %s\n", name, r, gated ? (ok ? "ok" : "OVER TOL") : "(reported)");
+		if (gated && !ok)
+			pass = false;
+	};
+
+	// ---- vision
+	if (set_in(V, 0, pix) != Error::Ok || !run(V, "vision"))
+		return 1;
+	std::vector<EValue> img(1);
+	if (V.get_outputs(img.data(), 1) != Error::Ok)
+		return 1;
+	stage("image tokens", img[0].toTensor(), x_img, false);
+
+	// ---- vlm: image tokens (chained) + host embeddings, RoPE tables, bias
+	bool ok = L.set_input(img[0], 0) == Error::Ok && set_in(L, 1, lang) == Error::Ok && set_in(L, 2, state) == Error::Ok &&
+			  set_in(L, 3, vsin) == Error::Ok && set_in(L, 4, vcos) == Error::Ok && set_in(L, 5, vbias) == Error::Ok;
+	if (!ok || !run(L, "vlm"))
+	{
+		printf("FAIL: vlm\n");
+		return 1;
+	}
+	std::vector<EValue> kv(2 * layers);
+	if (L.get_outputs(kv.data(), kv.size()) != Error::Ok)
+		return 1;
+	for (size_t i = 0; i < 2 * layers; ++i)
+	{
+		char nm[16];
+		snprintf(nm, sizeof nm, "%c%zu", i % 2 ? 'V' : 'K', i / 2);
+		stage(nm, kv[i].toTensor(), x_kv[i], true);
+	}
+
+	// ---- kv_proj: K/V of the cross-attention layers (odd layer indices)
+	for (size_t c = 0; ok && c < n_cross; ++c)
+		for (size_t j = 0; ok && j < 2; ++j)
+			ok = K.set_input(kv[2 * (2 * c + 1) + j], 2 * c + j) == Error::Ok;
+	if (!ok || !run(K, "kv_proj"))
+	{
+		printf("FAIL: kv_proj\n");
+		return 1;
+	}
+	std::vector<EValue> proj(2 * n_cross);
+	if (K.get_outputs(proj.data(), proj.size()) != Error::Ok)
+		return 1;
+
+	// ---- denoise_step x steps
+	static float xbuf[kChunk * kAct];
+	std::memcpy(xbuf, noise, kXBytes);
+	for (size_t s = 0; s < steps; ++s)
+	{
+		ok = set_in(D, 0, xbuf) == Error::Ok && set_in(D, 1, times + s * kTimeRow) == Error::Ok && set_in(D, 2, pbias) == Error::Ok &&
+			 set_in(D, 3, esin) == Error::Ok && set_in(D, 4, ecos) == Error::Ok;
+		for (size_t l = 0; ok && l < layers; ++l)
+			for (size_t j = 0; ok && j < 2; ++j)
+				ok = D.set_input(l % 2 == 1 ? proj[2 * (l / 2) + j] : kv[2 * l + j], kFirstKv + 2 * l + j) == Error::Ok;
+		char nm[16];
+		snprintf(nm, sizeof nm, "denoise_%zu", s + 1);
+		if (!ok || !run(D, nm))
+		{
+			printf("FAIL: denoise_step %zu\n", s + 1);
+			return 1;
+		}
+		std::vector<EValue> o(1);
+		if (D.get_outputs(o.data(), 1) != Error::Ok)
+			return 1;
+		const Tensor ot = o[0].toTensor();
+		std::memcpy(xbuf, ot.const_data_ptr<float>(), kXBytes);
+		snprintf(nm, sizeof nm, "x after step %zu", s + 1);
+		stage(nm, ot, x_steps[s], s + 1 == steps); // the last one is the final actions
+	}
+	double r32 = rel_l2(xbuf, reinterpret_cast<const float *>(x_fp32), kChunk * kAct);
+	bool finite = true;
+	for (size_t j = 0; j < kChunk * kAct; ++j)
+		finite = finite && std::isfinite(xbuf[j]);
+
+	// ---- instruction table
+	uint64_t total = 0;
+	printf("CHAIN method        instructions (one execute() call each)\n");
+	for (const Row &r : rows)
+	{
+		printf("CHAIN %-14s %12" PRIu64 "\n", r.name.c_str(), r.instr);
+		total += r.instr;
+	}
+	printf("CHAIN TOTAL          %12" PRIu64 "  (sum of execute() windows)\n", total);
+	printf("final actions[0..3] = %f %f %f %f\n", xbuf[0], xbuf[1], xbuf[2], xbuf[3]);
+	printf("final actions relL2 vs PyTorch fp32 chain = %e (reported)\n", r32);
+	pass = pass && finite;
+	printf("%s (tol %e on every K/V and the final actions)\n", pass ? "PASS" : "FAIL", (double)EXEC_TOL);
+	return pass ? 0 : 1;
+}
+#endif // EXEC_CHAIN_MODE
+
 static int g_rc = 1; // 0 only after "Model executed successfully"
 int main()
 {
@@ -564,6 +795,14 @@ int main()
 	if (!program.ok())
 		chipyard_sim_exit(1);
 	g_rc = run_step_mode(*program);
+	ET_LOG(Info, "Program complete, exiting.");
+	ET_LOG(Info, "\04");
+	chipyard_sim_exit(g_rc);
+#endif
+#ifdef EXEC_CHAIN_MODE
+	if (!program.ok())
+		chipyard_sim_exit(1);
+	g_rc = run_chain_mode(*program);
 	ET_LOG(Info, "Program complete, exiting.");
 	ET_LOG(Info, "\04");
 	chipyard_sim_exit(g_rc);
