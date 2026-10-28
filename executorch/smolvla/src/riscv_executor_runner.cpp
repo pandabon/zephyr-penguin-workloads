@@ -329,11 +329,14 @@ Result<BufferCleanup> prepare_input_tensors(Method &method, MemoryAllocator &all
  * Data layout (export_expert_step.py, "step_data.bin" / "step_expected.bin"):
  *   step_data     : noise x_1 f32 [1,50,32] | time table f32 [10,720] | 16 bf16 [1,241,320] = kv_proj inputs
  *                   (K1,V1,K3,V3,..K15,V15) | 16 bf16 [1,241,320] = prefix K/V of the self-attn layers (K0,V0,K2,..V14)
+ *                   | WL-11: prefix_bias f32 [1,241] (0 valid / -FLT_MAX padded; slot padded to 16 bytes) | RoPE sin f32 [50,1,32] | cos f32 [50,1,32]
+ *                   (positions n_valid..n_valid+49 of the self-attn layers)
  *   step_expected : final actions of the PyTorch lerobot-bf16 loop f32 | final actions of the fp32 loop f32 |
  *                   x after each of the 10 steps of the bf16 loop (10 x f32 [1,50,32])
+ *                   | WL-11: lerobot's own final actions f32 [1,50,6] (the PASS/FAIL reference)
  * kv_proj  : 16 inputs -> 16 f32 outputs [1,241,320] (k_proj(K), v_proj(V) of the 8 cross-attn layers).
- * denoise_step: inputs x_t, time row, then K,V of layer 0..15 (cross-attn layers get kv_proj's outputs);
- *               output x_t + dt * v_t.
+ * denoise_step: inputs x_t, time row, prefix_bias, sin, cos (WL-11), then K,V of layer 0..15 (cross-attn layers get
+ *               kv_proj's outputs); output x_t + dt * v_t.
  * The measured window is exactly one Method::execute() call (minstret before/after). The set_input() copies (the
  * method's inputs are memory-planned buffers that ExecuTorch may reuse once an input is dead, so every input is set
  * again before every step) are outside it.
@@ -341,12 +344,16 @@ Result<BufferCleanup> prepare_input_tensors(Method &method, MemoryAllocator &all
 namespace
 {
 constexpr size_t kLayers = 16, kSteps = 10, kChunk = 50, kAct = 32, kHidden = 720, kPrefix = 241, kKv = 320;
+constexpr size_t kRealAct = 6, kRopeHalf = 32, kFirstKv = 5; // WL-11: lerobot's action dims; head_dim/2; denoise_step inputs before K0
 constexpr size_t kXBytes = kChunk * kAct * sizeof(float);                // 6400
 constexpr size_t kTimeBytes = kSteps * kHidden * sizeof(float);          // 28800
 constexpr size_t kKvBytes = kPrefix * kKv * sizeof(uint16_t);            // one bf16 prefix K or V
 constexpr size_t kOffTime = kXBytes, kOffKvIn = kOffTime + kTimeBytes, kOffSelf = kOffKvIn + 16 * kKvBytes;
-constexpr size_t kDataSize = kOffSelf + 16 * kKvBytes;
-constexpr size_t kExpSize = (2 + kSteps) * kXBytes;
+constexpr size_t kOffPad = kOffSelf + 16 * kKvBytes;                     // WL-11 inputs: prefix_bias, sin, cos
+constexpr size_t kPadBytes = (kPrefix * sizeof(float) + 15) / 16 * 16; // prefix_bias slot, padded to 16 bytes
+constexpr size_t kRopeBytes = kChunk * kRopeHalf * sizeof(float);
+constexpr size_t kDataSize = kOffPad + kPadBytes + 2 * kRopeBytes;
+constexpr size_t kExpSize = (2 + kSteps) * kXBytes + kChunk * kRealAct * sizeof(float);
 
 struct Loaded
 {
@@ -434,7 +441,7 @@ static int run_step_mode(Program &program)
 		return 1;
 	printf("method pool used after loading both methods: %zu of %zu bytes\n", method_alloc.used_size(),
 		   method_allocation_pool_size);
-	if (kv.method->inputs_size() != 16 || kv.method->outputs_size() != 16 || dn.method->inputs_size() != 34 ||
+	if (kv.method->inputs_size() != 16 || kv.method->outputs_size() != 16 || dn.method->inputs_size() != kFirstKv + 2 * kLayers ||
 		dn.method->outputs_size() != 1)
 	{
 		printf("FAIL: unexpected method signatures\n");
@@ -445,6 +452,7 @@ static int run_step_mode(Program &program)
 	const float *exp_final = reinterpret_cast<const float *>(step_expected);
 	const float *exp_fp32 = exp_final + kChunk * kAct;
 	const float *exp_steps = exp_fp32 + kChunk * kAct;
+	const float *exp_lerobot = exp_steps + kSteps * kChunk * kAct; // [50,6]
 
 	// ---- kv_proj, once ----
 	for (size_t i = 0; i < 16; ++i)
@@ -471,11 +479,14 @@ static int run_step_mode(Program &program)
 	for (size_t step = 0; step < kSteps; ++step)
 	{
 		bool ok = set_in(*dn.method, 0, xbuf) == Error::Ok &&
-				  set_in(*dn.method, 1, data + kOffTime + step * kHidden * sizeof(float)) == Error::Ok;
+				  set_in(*dn.method, 1, data + kOffTime + step * kHidden * sizeof(float)) == Error::Ok &&
+				  set_in(*dn.method, 2, data + kOffPad) == Error::Ok &&
+				  set_in(*dn.method, 3, data + kOffPad + kPadBytes) == Error::Ok &&
+				  set_in(*dn.method, 4, data + kOffPad + kPadBytes + kRopeBytes) == Error::Ok;
 		for (size_t l = 0; ok && l < kLayers; ++l)
 			for (size_t j = 0; ok && j < 2; ++j)
 			{
-				size_t in_idx = 2 + 2 * l + j, pair = 2 * (l / 2) + j;
+				size_t in_idx = kFirstKv + 2 * l + j, pair = 2 * (l / 2) + j;
 				if (l % 2 == 1) // cross-attn layer: kv_proj's output for this layer
 					ok = dn.method->set_input(kvo[pair], in_idx) == Error::Ok;
 				else // self-attn layer: the prefix K/V as they are
@@ -506,6 +517,16 @@ static int run_step_mode(Program &program)
 	}
 
 	double r_bf16 = rel_l2(xbuf, exp_final, kChunk * kAct), r_fp32 = rel_l2(xbuf, exp_fp32, kChunk * kAct);
+	// lerobot returns only the first 6 of the 32 action dims
+	double le = 0, lr = 0;
+	for (size_t t = 0; t < kChunk; ++t)
+		for (size_t c = 0; c < kRealAct; ++c)
+		{
+			double d = (double)xbuf[t * kAct + c] - (double)exp_lerobot[t * kRealAct + c];
+			le += d * d;
+			lr += (double)exp_lerobot[t * kRealAct + c] * (double)exp_lerobot[t * kRealAct + c];
+		}
+	double r_lerobot = std::sqrt(le) / std::sqrt(lr);
 	bool finite = true;
 	for (size_t j = 0; j < kChunk * kAct; ++j)
 		finite = finite && std::isfinite(xbuf[j]);
@@ -516,7 +537,8 @@ static int run_step_mode(Program &program)
 	printf("final actions[0..3] = %f %f %f %f\n", xbuf[0], xbuf[1], xbuf[2], xbuf[3]);
 	printf("final actions relL2 vs PyTorch lerobot-bf16 = %e (tol %e), vs PyTorch fp32 = %e\n", r_bf16, (double)EXEC_TOL,
 		   r_fp32);
-	bool pass = finite && r_bf16 < (double)EXEC_TOL;
+	printf("final actions[:, :6] relL2 vs LEROBOT's actions = %e (tol %e)\n", r_lerobot, (double)EXEC_TOL);
+	bool pass = finite && r_lerobot < (double)EXEC_TOL;
 	printf("%s\n", pass ? "PASS" : "FAIL");
 	return pass ? 0 : 1;
 }
