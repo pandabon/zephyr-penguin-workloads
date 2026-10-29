@@ -25,6 +25,11 @@
  * outputs fed to the next one on the target; execute() instructions per method call and a check of every stage against the
  * PyTorch reference; see run_chain_mode() below.
  *
+ * EXTERNAL WEIGHTS (EXEC_PTD, written for this repo; recipe and measurements: smolvla-explore/fpga-prep/FPGA-PLAN.md section 3a): the .pte
+ * holds the graph, its XNNPACK weights are in a .ptd (ExecuTorch FlatTensorDataMap, passed to load_method()). Mode embed: the real .ptd
+ * is part of the image. Mode prng: only the .ptd header is in the image, the weight bytes are generated at boot into a .noinit buffer
+ * (timing runs: nothing to send over the UART, no output check).
+ *
  * Changes versus the exeggutorch version:
  *  - method_allocation_pool_size is a compile definition (ET_METHOD_POOL_SIZE, default 64 KiB;
  *    the MNIST MLP needs ~7 KB. The pool is a static array, so it is part of the loaded image).
@@ -45,6 +50,10 @@
 
 #include <executorch/extension/data_loader/buffer_data_loader.h>
 #include <executorch/extension/runner_util/inputs.h>
+#ifdef EXEC_HAVE_PTD
+#include <executorch/extension/flat_tensor/flat_tensor_data_map.h>
+#include <executorch/runtime/core/named_data_map.h>
+#endif
 #include <executorch/runtime/core/memory_allocator.h>
 #include <executorch/runtime/executor/program.h>
 #include <executorch/runtime/platform/log.h>
@@ -61,6 +70,12 @@ extern "C" {
 #include <chipyard/sim_exit.h>
 }
 #include "model_pte.h"
+#include "pc_sampler.h" /* EXEC_PC_SAMPLE: opt-in PC sampler, compiled out when 0 */
+
+/* EXEC_REPEAT=N (plain mode only): run execute() N times on the same inputs; default 1 = the old single run. */
+#ifndef EXEC_REPEAT
+#define EXEC_REPEAT 1
+#endif
 
 // XNNPACK internals, to report which RISC-V vector config it detected (see report_xnnpack_config()).
 extern "C" {
@@ -72,6 +87,9 @@ using executorch::aten::Tensor;
 using executorch::aten::TensorImpl;
 using executorch::extension::BufferCleanup;
 using executorch::extension::BufferDataLoader;
+#ifdef EXEC_HAVE_PTD
+using executorch::extension::FlatTensorDataMap;
+#endif
 using executorch::runtime::Error;
 using executorch::runtime::EValue;
 using executorch::runtime::HierarchicalAllocator;
@@ -112,6 +130,41 @@ static unsigned char __noinit __attribute__((aligned(16))) method_allocation_poo
 #endif
 const size_t temp_allocation_pool_size = ET_TEMP_POOL_SIZE;
 static unsigned char __noinit __attribute__((aligned(16))) temp_allocation_pool[temp_allocation_pool_size];
+
+#ifdef EXEC_HAVE_PTD
+/* External weights. g_named_data_map is what every load_method() gets; it stays null without EXEC_PTD (then load_method() is called as before). */
+static const executorch::runtime::NamedDataMap *g_named_data_map = nullptr;
+#endif
+
+#ifdef EXEC_PTD_PRNG
+/* Weights generated on the target (EXEC_PTD_MODE=prng). This .noinit buffer (NOLOAD: in RAM, not in the image, so not sent over the UART)
+ * holds [copy of the .ptd header and key table | generated weight bytes] and is what the FlatTensorDataMap reads. 4096-aligned, which
+ * covers the segment alignment inside a .ptd (>= 128, see extension/flat_tensor/serialize/serialize.py in forks/executorch
+ * 85600f76e3). The values only have to be harmless, since timing does not depend on them: every 16-bit word is a small bf16 (sign random,
+ * exponent 2^-13..2^-6, random mantissa). Two such words read as an f32 (lo, hi) are also finite and small, so bf16 and f32 weights both
+ * stay free of NaN, inf and denormals. Generator: xorshift64* (Vigna, "An experimental exploration of Marsaglia's xorshift generators,
+ * scrambled", 2014; public-domain constants 0x2545F4914F6CDD1D), four bf16 lanes per 64-bit word. */
+static unsigned char __noinit __attribute__((aligned(4096))) ptd_buf[EXEC_PTD_SIZE];
+
+static void fill_ptd_buffer()
+{
+	memcpy(ptd_buf, ptd_header, ptd_header_size);
+	uint64_t x = 0x9E3779B97F4A7C15ull;
+	uint64_t *p = (uint64_t *)(ptd_buf + ptd_header_size);
+	size_t n = (EXEC_PTD_SIZE - ptd_header_size) / 8;
+	for (size_t i = 0; i < n; i++)
+	{
+		x ^= x >> 12;
+		x ^= x << 25;
+		x ^= x >> 27;
+		uint64_t r = x * 0x2545F4914F6CDD1Dull;
+		/* per lane: sign = r bit 15, exponent = 0x72 + (r bits 8..10) -> 2^-13..2^-6, mantissa = r bits 0..6 */
+		p[i] = (r & 0x8000800080008000ull) | ((((r >> 8) & 0x0007000700070007ull) + 0x0072007200720072ull) << 7) |
+			   (r & 0x007F007F007F007Full);
+	}
+	memset(ptd_buf + ptd_header_size + n * 8, 0, (EXEC_PTD_SIZE - ptd_header_size) % 8); /* none for 128-aligned sizes */
+}
+#endif
 
 #ifndef EXEC_TOL
 #define EXEC_TOL 1e-4
@@ -395,7 +448,11 @@ bool load_named(Program &program, const char *name, MemoryAllocator &method_allo
 	}
 	out.planned = std::make_unique<HierarchicalAllocator>(Span<Span<uint8_t>>(out.spans.data(), out.spans.size()));
 	out.manager = std::make_unique<MemoryManager>(&method_alloc, out.planned.get(), &temp_alloc);
+#ifdef EXEC_HAVE_PTD
+	Result<Method> m = program.load_method(name, out.manager.get(), nullptr, g_named_data_map);
+#else
 	Result<Method> m = program.load_method(name, out.manager.get());
+#endif
 	if (!m.ok())
 	{
 		printf("FAIL: load_method(%s) = 0x%x\n", name, (unsigned)m.error());
@@ -791,6 +848,28 @@ int main()
 	{
 		ET_LOG(Info, "Program loading failed @ 0x%p: 0x%" PRIx32, model_pte, program.error());
 	}
+#ifdef EXEC_HAVE_PTD
+	/* External weights: generate (prng) or just point at (embed) the .ptd bytes, and open them as a NamedDataMap that stays alive until
+	 * main() ends (the Methods keep pointers into it). */
+#ifdef EXEC_PTD_PRNG
+	uint64_t fill_i0 = read_minstret(), fill_c0 = read_mcycle();
+	fill_ptd_buffer();
+	uint64_t fill_i1 = read_minstret(), fill_c1 = read_mcycle();
+	printf("PRNG weights: %u bytes (.ptd header %u + generated %u), fill: mcycle delta = %" PRIu64 ", minstret delta = %" PRIu64 "\n",
+		   (unsigned)EXEC_PTD_SIZE, ptd_header_size, (unsigned)(EXEC_PTD_SIZE - ptd_header_size), fill_c1 - fill_c0, fill_i1 - fill_i0);
+	BufferDataLoader ptd_loader(ptd_buf, EXEC_PTD_SIZE);
+#else
+	printf("external weights: real .ptd embedded in the image, %u bytes\n", ptd_embedded_size);
+	BufferDataLoader ptd_loader(ptd_embedded, ptd_embedded_size);
+#endif
+	Result<FlatTensorDataMap> ptd_map = FlatTensorDataMap::load(&ptd_loader);
+	if (!ptd_map.ok())
+	{
+		printf("FAIL: FlatTensorDataMap::load = 0x%x\n", (unsigned)ptd_map.error());
+		chipyard_sim_exit(1);
+	}
+	g_named_data_map = &*ptd_map;
+#endif
 #ifdef EXEC_STEP_MODE
 	if (!program.ok())
 		chipyard_sim_exit(1);
@@ -855,7 +934,11 @@ int main()
 
 	size_t method_loaded_membase = method_allocator.used_size();
 
+#ifdef EXEC_HAVE_PTD
+	Result<Method> method = program->load_method(method_name, &memory_manager, nullptr, g_named_data_map);
+#else
 	Result<Method> method = program->load_method(method_name, &memory_manager);
+#endif
 	if (!method.ok())
 	{
 		ET_LOG(Info, "Loading of method %s failed with status 0x%" PRIx32, method_name, method.error());
@@ -896,12 +979,39 @@ int main()
 
 	ET_LOG(Info, "Starting the model execution...");
 	size_t executor_membase = method_allocator.used_size();
-	uint64_t instret0 = read_minstret(), cycle0 = read_mcycle();
-	Error status = method->execute();
-	uint64_t instret1 = read_minstret(), cycle1 = read_mcycle();
-	printf("execute(): minstret delta = %" PRIu64 ", mcycle delta = %" PRIu64 "\n", instret1 - instret0,
-		   cycle1 - cycle0);
-	size_t executor_memsize = method_allocator.used_size() - executor_membase;
+	Error status = Error::Ok;
+	size_t reprepared_bytes = 0; /* pool bytes used by re-setting the inputs between runs (not part of execute()) */
+	pc_sampler_start();			 /* no-op unless EXEC_PC_SAMPLE > 0 */
+	for (int rep = 0; rep < EXEC_REPEAT; ++rep)
+	{
+		if (rep > 0)
+		{
+			// execute() may overwrite its own input buffers (the memory planner reuses an input's memory once its last use is
+			// done; without this the 2nd run read garbage and the output was -inf). So give the method its inputs again, outside the
+			// timed and sampled window. Costs one more copy of the inputs in the method pool per extra run.
+			pc_sampler_pause();
+			size_t before = method_allocator.used_size();
+			auto again = ::prepare_input_tensors(*method, method_allocator, input_buffers);
+			ET_CHECK_MSG(again.ok(), "re-preparing inputs for execute() #%d failed", rep + 1);
+			reprepared_bytes += method_allocator.used_size() - before;
+			pc_sampler_resume();
+		}
+		uint64_t instret0 = read_minstret(), cycle0 = read_mcycle();
+		status = method->execute();
+		uint64_t instret1 = read_minstret(), cycle1 = read_mcycle();
+#if EXEC_REPEAT > 1
+		printf("execute() #%d: mcycle delta = %" PRIu64 ", minstret delta = %" PRIu64 "\n", rep + 1, cycle1 - cycle0,
+			   instret1 - instret0);
+#else
+		printf("execute(): minstret delta = %" PRIu64 ", mcycle delta = %" PRIu64 "\n", instret1 - instret0,
+			   cycle1 - cycle0);
+#endif
+		if (status != Error::Ok)
+			break;
+	}
+	pc_sampler_stop();
+	pc_sampler_report(); /* prints PCHIST BEGIN ... PCHIST END; no-op unless EXEC_PC_SAMPLE > 0 */
+	size_t executor_memsize = method_allocator.used_size() - executor_membase - reprepared_bytes;
 
 	ET_LOG(Info, "model_pte_loaded_size:     %lu bytes.", pte_size);
 
@@ -1068,6 +1178,9 @@ int main()
 #endif
 	}
 out:
+#ifdef EXEC_PTD_PRNG
+	printf("PRNG weights: no output check\n"); /* the outputs above come from random weights; only timing and finiteness mean anything */
+#endif
 	ET_LOG(Info, "Program complete, exiting.");
 	ET_LOG(Info, "\04");
 	chipyard_sim_exit(g_rc);

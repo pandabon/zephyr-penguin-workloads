@@ -28,6 +28,16 @@
 #                                         CHAIN MODE (SmolVLA mini chain: .pte with methods vision, vlm, kv_proj, denoise_step, written by
 #                                         smolvla-explore/export_mini_chain.py): run them once in that order on the target (denoise_step
 #                                         looped), print instructions per method and check every stage; not combinable with step mode
+#           -DEXEC_PTD=/path/x.ptd -DEXEC_PTD_MODE=embed|prng
+#                                         EXTERNAL WEIGHTS: the .pte was exported with its XNNPACK weights in a separate .ptd (ExecuTorch
+#                                         flat_tensor data file, written by smolvla-explore/fpga-prep/ext_const.py + export_ext_all.py).
+#                                         embed (default): the whole real .ptd goes into the image (correctness runs, same output as the
+#                                         normal .pte). prng: only the .ptd header goes into the image; the weight bytes are a .noinit
+#                                         buffer the runner fills with a PRNG at boot (tame values, timing only: the output check is
+#                                         skipped), so the weights are not sent over the UART. EXEC_EXPECTED is ignored in prng mode.
+#           -DEXEC_SELECT_OPS=ON          link only the portable kernels the model's own .pte uses (ExecuTorch's selective build,
+#                                         EXECUTORCH_SELECT_OPS_MODEL=EXEC_MODEL) instead of the whole portable library: ~-4.6 MB of image
+#           -DEXEC_REPEAT=N, -DEXEC_PC_SAMPLE=us, -DEXEC_XNN_PROFILE=ON   see "opt-in instrumentation" below
 #
 # Derived from executorch/mnist in this repo (same CMake opt-in/mirror scheme; adds the embedded
 # input/expected arrays). That app is derived from the following:
@@ -88,15 +98,29 @@ set(EXEC_CHAIN_EXPECTED "" CACHE STRING "Chain mode: golden stages (.chain_expec
 # CMake only (file(READ ... HEX)), so the build needs no extra python.
 # Fine for small files (MNIST, one expert layer of 12 MB); for a 200 MB model the hex string alone is 400 MB and
 # the C source ~1.2 GB (6 characters per byte), all built in CMake strings. Use EXEC_EMBED=incbin for those.
+# Optional 5th/6th arguments (all _embed_* functions): LIMIT = embed only the first LIMIT bytes of FILE (default: all; 0 = all),
+# ALIGN = alignment of the symbol in bytes (default 16).
 function(_embed_hex FILE SYM SEC OUT)
+  set(_limit 0)
+  set(_align 16)
+  if(ARGC GREATER 4)
+    set(_limit ${ARGV4})
+  endif()
+  if(ARGC GREATER 5)
+    set(_align ${ARGV5})
+  endif()
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${FILE}")
-  file(READ "${FILE}" _hex HEX)
+  if(_limit GREATER 0)
+    file(READ "${FILE}" _hex HEX LIMIT ${_limit})
+  else()
+    file(READ "${FILE}" _hex HEX)
+  endif()
   string(LENGTH "${_hex}" _hexlen)
   math(EXPR _size "${_hexlen} / 2")
   string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," _bytes "${_hex}")
   file(WRITE "${OUT}"
     "/* generated from ${FILE} */\n"
-    "__attribute__((section(\"${SEC}\"), aligned(16))) const unsigned char ${SYM}[] = {${_bytes}};\n"
+    "__attribute__((section(\"${SEC}\"), aligned(${_align}))) const unsigned char ${SYM}[] = {${_bytes}};\n"
     "const unsigned int ${SYM}_size = ${_size};\n")
 endfunction()
 
@@ -105,13 +129,21 @@ endfunction()
 # read-only), 16-byte aligned, and a 32-bit `<SYM>_size` word (the C array version has `const unsigned int`).
 # The object depends on the file (OBJECT_DEPENDS), so changing the model rebuilds it.
 function(_embed_incbin FILE SYM SEC OUT)
+  set(_incbin "\"${FILE}\"")
+  set(_align 16)
+  if(ARGC GREATER 4 AND ARGV4 GREATER 0)
+    set(_incbin "\"${FILE}\",0,${ARGV4}")   # GNU as: .incbin "file", skip, count
+  endif()
+  if(ARGC GREATER 5)
+    set(_align ${ARGV5})
+  endif()
   file(WRITE "${OUT}"
     "/* generated; embeds ${FILE} */\n"
     "\t.section ${SEC},\"a\",@progbits\n"
-    "\t.balign 16\n"
+    "\t.balign ${_align}\n"
     "\t.global ${SYM}\n"
     "${SYM}:\n"
-    "\t.incbin \"${FILE}\"\n"
+    "\t.incbin ${_incbin}\n"
     "${SYM}_end:\n"
     "\t.balign 4\n"
     "\t.global ${SYM}_size\n"
@@ -121,13 +153,23 @@ function(_embed_incbin FILE SYM SEC OUT)
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${FILE}")
 endfunction()
 
-# _embed_bin(FILE SYM SEC OUT_BASE): writes OUT_BASE.c or OUT_BASE.S depending on EXEC_EMBED; sets _embed_out to the file.
+# _embed_bin(FILE SYM SEC OUT_BASE [LIMIT [ALIGN]]): writes OUT_BASE.c or OUT_BASE.S depending on EXEC_EMBED; sets _embed_out to the file.
 function(_embed_bin FILE SYM SEC OUT_BASE)
+  set(_opt "")
+  if(ARGC GREATER 4)
+    set(_opt ${ARGV4})
+  endif()
+  if(ARGC GREATER 5)
+    list(APPEND _opt ${ARGV5})
+  endif()
+  if(NOT _opt)
+    set(_opt 0 16)
+  endif()
   if(EXEC_EMBED STREQUAL "incbin")
-    _embed_incbin("${FILE}" "${SYM}" "${SEC}" "${OUT_BASE}.S")
+    _embed_incbin("${FILE}" "${SYM}" "${SEC}" "${OUT_BASE}.S" ${_opt})
     set(_embed_out "${OUT_BASE}.S" PARENT_SCOPE)
   elseif(EXEC_EMBED STREQUAL "hex")
-    _embed_hex("${FILE}" "${SYM}" "${SEC}" "${OUT_BASE}.c")
+    _embed_hex("${FILE}" "${SYM}" "${SEC}" "${OUT_BASE}.c" ${_opt})
     set(_embed_out "${OUT_BASE}.c" PARENT_SCOPE)
   else()
     message(FATAL_ERROR "EXEC_EMBED must be hex or incbin (got '${EXEC_EMBED}')")
@@ -137,6 +179,57 @@ endfunction()
 # like exeggutorch's pte_to_header.py
 _embed_bin("${_pte}" model_pte network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/model_pte")
 set(_embedded ${_embed_out})
+
+# ---- external weights (opt-in): EXEC_PTD, EXEC_PTD_MODE ----------------------------
+# A .ptd is ExecuTorch's FlatTensor file (extension/flat_tensor, forks/executorch penguin-1.6 85600f76e3): a 40-byte header at byte 8
+# ("FH01", header length u32, flatbuffer_offset u64, flatbuffer_size u64, segment_base_offset u64, segment_data_size u64; see
+# extension/flat_tensor/serialize/flat_tensor_header.h), the key table (flatbuffer), then the weight bytes from segment_base_offset.
+# embed: the whole file is embedded (symbol ptd_embedded). prng: only bytes [0, segment_base_offset) are embedded (symbol ptd_header);
+# the runner makes a .noinit buffer of EXEC_PTD_SIZE bytes and fills the rest with random values at boot.
+set(EXEC_PTD "" CACHE STRING "Optional .ptd with the model's external weights (see the header of this file)")
+set(EXEC_PTD_MODE "embed" CACHE STRING "embed (real weights in the image) or prng (generated on the target, timing only)")
+option(EXEC_SELECT_OPS "Link only the portable kernels used by EXEC_MODEL (ExecuTorch selective build)" OFF)
+if(EXEC_PTD)
+  if(NOT EXEC_PTD MATCHES "\\.ptd$" OR NOT EXISTS "${EXEC_PTD}")
+    message(FATAL_ERROR "EXEC_PTD must be the path of an existing .ptd (got '${EXEC_PTD}')")
+  endif()
+  if(EXEC_STEP_DATA OR EXEC_CHAIN_DATA)
+    message(WARNING "EXEC_PTD with step/chain mode is untested: the runner passes the data map to every load_method(), but no such .pte was exported")
+  endif()
+  file(SIZE "${EXEC_PTD}" _ptd_size)
+  file(READ "${EXEC_PTD}" _ptd_hdr HEX OFFSET 8 LIMIT 40)
+  string(SUBSTRING "${_ptd_hdr}" 0 8 _ptd_magic)
+  if(NOT _ptd_magic STREQUAL "46483031")   # "FH01"
+    message(FATAL_ERROR "${EXEC_PTD} is not a FlatTensor .ptd (no FH01 magic at byte 8)")
+  endif()
+  string(SUBSTRING "${_ptd_hdr}" 48 16 _ptd_base_le)   # segment_base_offset, u64 little endian, at header byte 24
+  string(REGEX MATCHALL "[0-9a-f][0-9a-f]" _ptd_base_bytes "${_ptd_base_le}")
+  list(REVERSE _ptd_base_bytes)
+  list(JOIN _ptd_base_bytes "" _ptd_base_be)
+  math(EXPR _ptd_base "0x${_ptd_base_be}")
+  if(_ptd_base LESS 48 OR _ptd_base GREATER _ptd_size)
+    message(FATAL_ERROR "${EXEC_PTD}: segment_base_offset ${_ptd_base} is not inside the file (${_ptd_size} bytes)")
+  endif()
+  if(EXEC_PTD_MODE STREQUAL "embed")
+    # 128-byte aligned like the segments inside the .ptd (serialize.py aligns them to >= 128)
+    _embed_bin("${EXEC_PTD}" ptd_embedded network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/ptd_embedded" 0 128)
+    add_compile_definitions(EXEC_PTD_EMBED=1)
+  elseif(EXEC_PTD_MODE STREQUAL "prng")
+    _embed_bin("${EXEC_PTD}" ptd_header network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/ptd_header" ${_ptd_base})
+    add_compile_definitions(EXEC_PTD_PRNG=1 EXEC_PTD_SIZE=${_ptd_size})
+    if(EXEC_EXPECTED)
+      message(STATUS "EXEC_PTD_MODE=prng: EXEC_EXPECTED is ignored (random weights, no output check)")
+      set(EXEC_EXPECTED "")
+    endif()
+  else()
+    message(FATAL_ERROR "EXEC_PTD_MODE must be embed or prng (got '${EXEC_PTD_MODE}')")
+  endif()
+  list(APPEND _embedded ${_embed_out})
+  add_compile_definitions(EXEC_HAVE_PTD=1)
+  message(STATUS "external weights: ${EXEC_PTD} (${_ptd_size} bytes, header+keys ${_ptd_base} bytes), mode ${EXEC_PTD_MODE}")
+elseif(EXEC_PTD_MODE STREQUAL "prng")
+  message(FATAL_ERROR "EXEC_PTD_MODE=prng needs EXEC_PTD")
+endif()
 if(EXEC_STEP_DATA)
   if(NOT EXISTS "${EXEC_STEP_DATA}" OR NOT EXISTS "${EXEC_STEP_EXPECTED}")
     message(FATAL_ERROR "step mode needs existing EXEC_STEP_DATA and EXEC_STEP_EXPECTED")
@@ -177,6 +270,24 @@ if(EXEC_EXPECTED)
   add_compile_definitions(EXEC_HAVE_EXPECTED=1)
 endif()
 add_compile_definitions(EXEC_TOL=${EXEC_TOL})
+
+# ---- opt-in instrumentation for FPGA runs (all off by default; see smolvla-explore/fpga-prep/INSTRUMENTATION.md) ----
+set(EXEC_REPEAT 1 CACHE STRING "Plain mode: run execute() this many times on the same inputs, print mcycle/minstret per run")
+set(EXEC_PC_SAMPLE 0 CACHE STRING "Timer-interrupt PC sampler period in microseconds (0 = off); see src/pc_sampler.h")
+set(EXEC_PC_TABLE 16384 CACHE STRING "PC sampler hash-table entries (power of two, 16 bytes each, .noinit)")
+option(EXEC_XNN_PROFILE "Build ExecuTorch's XNNPACK backend with ENABLE_XNNPACK_PROFILING: one log line per XNNPACK operator and run" OFF)
+add_compile_definitions(EXEC_REPEAT=${EXEC_REPEAT} EXEC_PC_SAMPLE=${EXEC_PC_SAMPLE} EXEC_PC_TABLE=${EXEC_PC_TABLE})
+if(EXEC_STEP_DATA OR EXEC_CHAIN_DATA)
+  if(EXEC_REPEAT GREATER 1 OR EXEC_PC_SAMPLE GREATER 0)
+    message(WARNING "EXEC_REPEAT and EXEC_PC_SAMPLE apply to the plain mode only; step/chain mode ignores them")
+  endif()
+endif()
+if(EXEC_XNN_PROFILE)
+  # Directory-scope definition, so it reaches the xnnpack_backend target added below (XNNCompiler.cpp, XNNProfiler.cpp, XNNPACKBackend.cpp).
+  # Needs an ExecuTorch without the stale print_avg_op_timings() call in XNNPACKBackend.cpp (upstream release/1.6 still has it; fixed
+  # in our fork penguin-1.6).
+  add_compile_definitions(ENABLE_XNNPACK_PROFILING)
+endif()
 foreach(_p ET_METHOD_POOL_SIZE ET_TEMP_POOL_SIZE)
   if(DEFINED ${_p})
     add_compile_definitions(${_p}=${${_p}})
@@ -273,6 +384,13 @@ include_directories($<TARGET_PROPERTY:app,INTERFACE_INCLUDE_DIRECTORIES>)
 add_compile_options($<TARGET_PROPERTY:app,INTERFACE_COMPILE_OPTIONS>)
 add_compile_definitions($<TARGET_PROPERTY:app,INTERFACE_COMPILE_DEFINITIONS>)
 
+# Selective build of the portable kernels: ExecuTorch's own option, fed with this app's model. executorch_selected_kernels (generated by
+# ExecuTorch's CMake from the ops listed in the .pte, forks/executorch CMakeLists.txt "executorch_selected_kernels") replaces
+# portable_ops_lib + portable_kernels below. No source is changed.
+if(EXEC_SELECT_OPS)
+  set(EXECUTORCH_SELECT_OPS_MODEL "${_pte}" CACHE STRING "" FORCE)
+endif()
+
 add_subdirectory(${ET_DIR_PATH} ${ET_BUILD_DIR_PATH})
 
 # The Zephyr headers we added to every target include generated ones (zephyr/syscall_list.h,
@@ -308,10 +426,19 @@ if(TARGET extension_data_loader)
   set_target_properties(extension_data_loader PROPERTIES EXCLUDE_FROM_ALL TRUE)
 endif()
 
+if(EXEC_SELECT_OPS)
+  set(_kernel_libs executorch_selected_kernels)
+else()
+  set(_kernel_libs portable_ops_lib portable_kernels)
+endif()
 target_link_libraries(app PRIVATE
-  extension_runner_util executorch executorch_core portable_ops_lib portable_kernels
+  extension_runner_util executorch executorch_core ${_kernel_libs}
   xnnpack_backend XNNPACK xnnpack-microkernels-prod extension_threadpool
 )
+
+if(EXEC_PTD)
+  target_link_libraries(app PRIVATE extension_flat_tensor)   # FlatTensorDataMap (built by ExecuTorch's XNNPACK preset)
+endif()
 
 # XNNPACK's internal headers (src/xnnpack/hardware-config.h), used to report the detected RISC-V config.
 target_include_directories(app PRIVATE ${ET_DIR_PATH}/backends/xnnpack/third-party/XNNPACK)
