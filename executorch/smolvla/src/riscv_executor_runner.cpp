@@ -942,6 +942,65 @@ int main()
 #else
 	const size_t print_limit = 64; // all-ones runs (MNIST: 10 logits): print everything
 #endif
+#ifdef EXEC_HAVE_EXPECTED
+	// Multi-output check (SmolVLA steps 6e/6f): when the expected blob is R >= 1 whole copies of ALL outputs back to back (same order,
+	// each in its own dtype, no padding), every output is compared with every copy: "MULTI set s output i relL2". Copy 0 is the gated
+	// one (tolerance EXEC_TOL on every output); further copies (e.g. lerobot's own K/V) are reported only. Single-output models and
+	// expected blobs of exactly one output keep the old behaviour.
+	bool multi_expected = false;
+	size_t multi_total = 0;
+	if (outputs.size() > 1)
+	{
+		for (size_t i = 0; i < outputs.size(); ++i)
+			multi_total += outputs[i].toTensor().nbytes();
+		multi_expected = multi_total > 0 && exec_expected_size % multi_total == 0;
+	}
+	if (multi_expected)
+	{
+		const size_t sets = exec_expected_size / multi_total;
+		bool all_pass = true;
+		for (size_t s = 0; s < sets; ++s)
+		{
+			size_t off = s * multi_total;
+			for (size_t i = 0; i < outputs.size(); ++i)
+			{
+				Tensor t = outputs[i].toTensor();
+				size_t n = t.numel(), esz = t.element_size();
+				double err2 = 0, exp2 = 0;
+				for (size_t j = 0; j < n; ++j)
+				{
+					double e;
+					if (t.scalar_type() == ScalarType::BFloat16)
+					{
+						uint16_t raw;
+						std::memcpy(&raw, exec_expected + off + j * 2, 2);
+						uint32_t bits = (uint32_t)raw << 16;
+						float v;
+						std::memcpy(&v, &bits, sizeof(float));
+						e = v;
+					}
+					else
+					{
+						float v;
+						std::memcpy(&v, exec_expected + off + j * sizeof(float), sizeof(float));
+						e = v;
+					}
+					double d = tensor_value(t, j) - e;
+					err2 += d * d;
+					exp2 += e * e;
+				}
+				double r = std::sqrt(err2) / std::sqrt(exp2);
+				printf("MULTI set %zu output %zu relL2 = %e\n", s, i, r);
+				if (s == 0 && !(r < (double)EXEC_TOL))
+					all_pass = false;
+				off += n * esz;
+			}
+		}
+		printf("MULTI %s (tol %e on every output of set 0)\n", all_pass ? "PASS" : "FAIL", (double)EXEC_TOL);
+		if (!all_pass)
+			g_rc = 1;
+	}
+#endif
 	for (int i = 0; i < outputs.size(); ++i)
 	{
 		Tensor t = outputs[i].toTensor();
@@ -964,7 +1023,7 @@ int main()
 			sum += tensor_value(t, j);
 		printf("Output[%d] numel=%zu sum=%f\n", i, n, sum);
 #ifdef EXEC_HAVE_EXPECTED
-		if (i == 0)
+		if (i == 0 && !multi_expected)
 		{
 			// expected output has the output's own dtype (float32, or bf16 bit patterns), as written by
 			// the export script
