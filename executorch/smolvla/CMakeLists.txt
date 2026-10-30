@@ -40,6 +40,11 @@
 #                                         ~4.6 MB smaller image, i.e. ~7 min less UART load at 115200 baud. Turn it off only to run
 #                                         a .pte that was not the one built in (the runner fails with a missing-kernel error otherwise)
 #           -DEXEC_REPEAT=N, -DEXEC_PC_SAMPLE=us, -DEXEC_XNN_PROFILE=ON   see "opt-in instrumentation" below
+#           -DEXEC_ETDUMP=ON [-DEXEC_ETDUMP_BUF=bytes] [-DEXEC_CPU_HZ=hz]
+#                                         ExecuTorch's OFFICIAL profiling: event tracer + ETDump. Plain mode only. After the run the
+#                                         runner prints the ETDump base64 between "ETDUMP BEGIN" / "ETDUMP END"; the host script
+#                                         scripts/etdump_inspect.py turns it into a per-operator table with ExecuTorch's Inspector
+#                                         (and an ETRecord from the export, if you have one). Times are mcycle ticks. Off by default.
 #
 # Derived from executorch/mnist in this repo (same CMake opt-in/mirror scheme; adds the embedded
 # input/expected arrays). That app is derived from the following:
@@ -290,6 +295,37 @@ if(EXEC_XNN_PROFILE)
   # in our fork penguin-1.6).
   add_compile_definitions(ENABLE_XNNPACK_PROFILING)
 endif()
+# ExecuTorch's official profiling (ETRecord + ETDump + Inspector), opt-in. Derived from the Arm runner's ETDump support
+# (ExecuTorch examples/arm/executor_runner/{CMakeLists.txt,arm_executor_runner.cpp} @ 681c3edb47, Copyright Arm Limited and/or its
+# affiliates, BSD-style licence). What it switches on:
+#   * EXECUTORCH_ENABLE_EVENT_TRACER: ET_EVENT_TRACER_ENABLED in the runtime and the delegates (every operator call is wrapped
+#     in start_profiling()/end_profiling()). With it OFF none of that code is compiled.
+#   * EXECUTORCH_BUILD_DEVTOOLS: builds the `etdump` library (ETDumpGen) and runs flatcc on its schema. flatcc's generator
+#     (flatcc_cli) has to run on the BUILD machine: third-party/CMakeLists.txt of ExecuTorch builds it with an ExternalProject for the
+#     host (CMAKE_TOOLCHAIN_FILE= empty), so cross-compiling needs nothing extra here. The runtime part (flatccrt) is built for RISC-V.
+#   * the app (src/riscv_executor_runner.cpp) attaches ETDumpGen to load_method(), replaces the PAL clock with mcycle and prints
+#     the dump after the timed execute() window.
+# EXEC_ETDUMP_BUF: bytes of the static .noinit buffer ETDumpGen writes into (no malloc). up to 128 KiB of it (a quarter of a small buffer) is builder scratch;
+#   the rest holds the events (about 100-200 bytes per operator and run). The runner prints how much it used.
+# EXEC_CPU_HZ: core clock, only used to give the PAL a ticks->ns ratio (ns = ticks * 1e9 / EXEC_CPU_HZ). 50 MHz = the FPGA board.
+#   The ETDump itself stores raw ticks, so the Inspector is run with --source_time_scale cycles. The ratio matters for the XNNPACK
+#   per-operator rows (XNNProfiler::submit_trace() converts XNNPACK's microseconds into ticks with it, backends/xnnpack/runtime/
+#   profiling/XNNProfiler.cpp) and for the ET_LOG timestamps.
+option(EXEC_ETDUMP "Event tracer + ETDump profiling (ExecuTorch devtools); prints the dump base64 after the run (plain mode only)" OFF)
+set(EXEC_ETDUMP_BUF 524288 CACHE STRING "EXEC_ETDUMP: size in bytes of the static ETDump buffer")
+set(EXEC_CPU_HZ 50000000 CACHE STRING "EXEC_ETDUMP: core clock in Hz for the PAL ticks->ns ratio")
+if(EXEC_ETDUMP)
+  if(EXEC_STEP_DATA OR EXEC_CHAIN_DATA)
+    message(WARNING "EXEC_ETDUMP with step/chain mode is untested and does nothing there: the tracer is attached in the plain mode only")
+  endif()
+  if(EXEC_PTD)
+    message(WARNING "EXEC_ETDUMP with EXEC_PTD is untested")
+  endif()
+  add_compile_definitions(EXEC_ETDUMP=1 EXEC_ETDUMP_BUF=${EXEC_ETDUMP_BUF} EXEC_CPU_HZ=${EXEC_CPU_HZ})
+  set(EXECUTORCH_ENABLE_EVENT_TRACER ON CACHE BOOL "" FORCE)
+  set(EXECUTORCH_BUILD_DEVTOOLS ON CACHE BOOL "" FORCE)
+  message(STATUS "ETDump: event tracer on, buffer ${EXEC_ETDUMP_BUF} bytes, PAL clock mcycle at ${EXEC_CPU_HZ} Hz")
+endif()
 foreach(_p ET_METHOD_POOL_SIZE ET_TEMP_POOL_SIZE)
   if(DEFINED ${_p})
     add_compile_definitions(${_p}=${${_p}})
@@ -437,6 +473,10 @@ target_link_libraries(app PRIVATE
   extension_runner_util executorch executorch_core ${_kernel_libs}
   xnnpack_backend XNNPACK xnnpack-microkernels-prod extension_threadpool
 )
+
+if(EXEC_ETDUMP)
+  target_link_libraries(app PRIVATE etdump flatccrt)
+endif()
 
 if(EXEC_PTD)
   target_link_libraries(app PRIVATE extension_flat_tensor)   # FlatTensorDataMap (built by ExecuTorch's XNNPACK preset)

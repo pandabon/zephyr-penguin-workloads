@@ -11,6 +11,10 @@
  *  - Heap fix (empty BufferCleanup) and clean exit code: found while building the 2026-10-09
  *    bench ELFs; the same BufferCleanup change is in the author's working tree of the repo above.
  *
+ *  - EXEC_ETDUMP (ETDump profiling) mirrors the ETDump support of the same Arm runner: ETDumpGen attached to load_method(),
+ *    the dump printed base64 on the console (arm_executor_runner.cpp write_etdump(), ExecuTorch @ 681c3edb47, Copyright
+ *    Arm Limited and/or its affiliates, BSD-style licence). Differences: static buffer, mcycle PAL clock, "ETDUMP BEGIN/END" markers.
+ *
  * This copy (executorch/smolvla) derives from executorch/mnist's runner in this repo and adds
  * (written for this repo, no external origin): embedded input tensors (EXEC_INPUTS), an embedded
  * expected output with error metrics and PASS/FAIL (EXEC_EXPECTED, EXEC_TOL), minstret/mcycle around
@@ -59,6 +63,11 @@
 #include <executorch/runtime/platform/log.h>
 #include <executorch/runtime/platform/platform.h>
 #include <executorch/runtime/platform/runtime.h>
+#ifdef EXEC_ETDUMP
+/* EXEC_ETDUMP: ExecuTorch devtools event tracer; nothing of this is compiled in without the option. */
+#include <executorch/devtools/etdump/etdump_flatcc.h>
+#include <executorch/third-party/flatcc/include/flatcc/portable/pbase64.h>
+#endif
 
 struct _reent * _impure_ptr = nullptr;
 
@@ -182,6 +191,60 @@ static inline uint64_t read_mcycle()
 	__asm__ volatile("csrr %0, mcycle" : "=r"(v));
 	return v;
 }
+
+#ifdef EXEC_ETDUMP
+/* PAL clock for the event tracer. ExecuTorch's Zephyr default (runtime/platform/default/zephyr.cpp) returns k_uptime_ticks() (1 ms
+ * ticks on the FPGA board) with a ticks->ns ratio of {1,1}, which is wrong on both counts. Both PAL functions are declared weak
+ * (ET_INTERNAL_PLATFORM_WEAKNESS), so these strong definitions win at link time, like et_pal_abort() below.
+ * mcycle: real core cycles on the FPGA; on Spike it counts instructions (mcycle == minstret). The ETDump stores raw ticks, so the
+ * Inspector must read it with --source_time_scale cycles. The ratio (ns = ticks * num / den) is for the XNNPACK per-operator rows,
+ * which XNNProfiler converts from microseconds to ticks with it. */
+et_timestamp_t et_pal_current_ticks(void)
+{
+	uint64_t v;
+	__asm__ volatile("csrr %0, mcycle" : "=r"(v));
+	return v;
+}
+et_tick_ratio_t et_pal_ticks_to_ns_multiplier(void)
+{
+	return {1000000000ULL, (uint64_t)EXEC_CPU_HZ};
+}
+
+/* ETDump output: a static buffer (ETDumpGen then never calls malloc), in .noinit like the two pools. */
+static uint8_t __noinit __attribute__((aligned(16))) etdump_buffer[EXEC_ETDUMP_BUF];
+
+/* Print the dump as base64 between markers, 120 characters per line, so the host script can cut it out of the console log.
+ * Encoding derived from write_etdump() in ExecuTorch examples/arm/executor_runner/arm_executor_runner.cpp @ 681c3edb47. */
+static void print_etdump(executorch::etdump::ETDumpGen &gen, MemoryAllocator &alloc)
+{
+	executorch::etdump::ETDumpResult r = gen.get_etdump_data();
+	if (r.buf == nullptr || r.size == 0)
+	{
+		printf("ETDUMP EMPTY\n");
+		return;
+	}
+	int mode = base64_enc_modifier_padding | base64_dec_modifier_skipspace;
+	size_t in_len = r.size, out_len = base64_encoded_size(in_len, mode);
+	char *enc = reinterpret_cast<char *>(alloc.allocate(out_len + 1));
+	if (enc == nullptr)
+	{
+		printf("ETDUMP FAIL: no memory for the %zu-byte base64 text\n", out_len + 1);
+		return;
+	}
+	int rc = base64_encode(reinterpret_cast<uint8_t *>(enc), reinterpret_cast<const uint8_t *>(r.buf), &out_len, &in_len, mode);
+	if (rc != BASE64_EOK)
+	{
+		printf("ETDUMP FAIL: %s\n", base64_strerror(rc));
+		return;
+	}
+	et_tick_ratio_t ratio = et_pal_ticks_to_ns_multiplier();
+	printf("ETDUMP BEGIN size=%zu buffer=%u ticks=mcycle ns_per_tick=%llu/%llu\n", r.size, (unsigned)EXEC_ETDUMP_BUF,
+		   (unsigned long long)ratio.numerator, (unsigned long long)ratio.denominator);
+	for (size_t i = 0; i < out_len; i += 120)
+		printf("%.*s\n", (int)(out_len - i < 120 ? out_len - i : 120), enc + i);
+	printf("ETDUMP END\n");
+}
+#endif
 
 /* void et_pal_init(void)
 {
@@ -934,10 +997,17 @@ int main()
 
 	size_t method_loaded_membase = method_allocator.used_size();
 
-#ifdef EXEC_HAVE_PTD
-	Result<Method> method = program->load_method(method_name, &memory_manager, nullptr, g_named_data_map);
+#ifdef EXEC_ETDUMP
+	/* The tracer is the 3rd argument of load_method(); the Method keeps the pointer and calls it around every operator. */
+	executorch::etdump::ETDumpGen etdump_gen(Span<uint8_t>(etdump_buffer, sizeof(etdump_buffer)));
+	executorch::runtime::EventTracer *event_tracer = &etdump_gen;
 #else
-	Result<Method> method = program->load_method(method_name, &memory_manager);
+	executorch::runtime::EventTracer *event_tracer = nullptr;
+#endif
+#ifdef EXEC_HAVE_PTD
+	Result<Method> method = program->load_method(method_name, &memory_manager, event_tracer, g_named_data_map);
+#else
+	Result<Method> method = program->load_method(method_name, &memory_manager, event_tracer);
 #endif
 	if (!method.ok())
 	{
@@ -1032,6 +1102,10 @@ int main()
 			   temp_allocator.size(), temp_allocator.free_size(),
 			   100 * temp_allocator.used_size() / temp_allocator.size());
 	}
+
+#ifdef EXEC_ETDUMP
+	print_etdump(etdump_gen, method_allocator); /* after the timed (and after the memory report, which the base64 text would inflate) window(s); the printf()s are not part of execute() */
+#endif
 
 	if (status != Error::Ok)
 	{
