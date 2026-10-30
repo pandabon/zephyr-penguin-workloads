@@ -35,8 +35,10 @@
 #                                         normal .pte). prng: only the .ptd header goes into the image; the weight bytes are a .noinit
 #                                         buffer the runner fills with a PRNG at boot (tame values, timing only: the output check is
 #                                         skipped), so the weights are not sent over the UART. EXEC_EXPECTED is ignored in prng mode.
-#           -DEXEC_SELECT_OPS=ON          link only the portable kernels the model's own .pte uses (ExecuTorch's selective build,
-#                                         EXECUTORCH_SELECT_OPS_MODEL=EXEC_MODEL) instead of the whole portable library: ~-4.6 MB of image
+#           -DEXEC_SELECT_OPS=OFF         link the whole portable kernel library. Default ON: link only the portable kernels the .pte
+#                                         uses, in any of its methods (ExecuTorch's selective build, EXECUTORCH_SELECT_OPS_MODEL=EXEC_MODEL):
+#                                         ~4.6 MB smaller image, i.e. ~7 min less UART load at 115200 baud. Turn it off only to run
+#                                         a .pte that was not the one built in (the runner fails with a missing-kernel error otherwise)
 #           -DEXEC_REPEAT=N, -DEXEC_PC_SAMPLE=us, -DEXEC_XNN_PROFILE=ON   see "opt-in instrumentation" below
 #
 # Derived from executorch/mnist in this repo (same CMake opt-in/mirror scheme; adds the embedded
@@ -188,7 +190,7 @@ set(_embedded ${_embed_out})
 # the runner makes a .noinit buffer of EXEC_PTD_SIZE bytes and fills the rest with random values at boot.
 set(EXEC_PTD "" CACHE STRING "Optional .ptd with the model's external weights (see the header of this file)")
 set(EXEC_PTD_MODE "embed" CACHE STRING "embed (real weights in the image) or prng (generated on the target, timing only)")
-option(EXEC_SELECT_OPS "Link only the portable kernels used by EXEC_MODEL (ExecuTorch selective build)" OFF)
+option(EXEC_SELECT_OPS "Link only the portable kernels used by EXEC_MODEL (ExecuTorch selective build)" ON)
 if(EXEC_PTD)
   if(NOT EXEC_PTD MATCHES "\\.ptd$" OR NOT EXISTS "${EXEC_PTD}")
     message(FATAL_ERROR "EXEC_PTD must be the path of an existing .ptd (got '${EXEC_PTD}')")
