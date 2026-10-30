@@ -192,6 +192,18 @@ static inline uint64_t read_mcycle()
 	return v;
 }
 
+/* The event tracer every load_method() of the step and chain modes gets (one ETDumpGen, so one dump holds all methods and runs).
+ * Stays null without EXEC_ETDUMP, which is the behaviour before the option existed. */
+static executorch::runtime::EventTracer *g_event_tracer = nullptr;
+#ifdef EXEC_ETDUMP
+/* The order of the execute() calls of the step / chain modes ("kv_proj denoise_step_1 ..."), printed with the dump: the dump itself does
+ * not name the method of a run, the host script (etdump_inspect.py) takes the names from this list. Called before the timed window. */
+static std::string g_exec_order;
+#define ETD_NOTE(label) (g_exec_order += (g_exec_order.empty() ? "" : " "), g_exec_order += (label))
+#else
+#define ETD_NOTE(label) ((void)0)
+#endif
+
 #ifdef EXEC_ETDUMP
 /* PAL clock for the event tracer. ExecuTorch's Zephyr default (runtime/platform/default/zephyr.cpp) returns k_uptime_ticks() (1 ms
  * ticks on the FPGA board) with a ticks->ns ratio of {1,1}, which is wrong on both counts. Both PAL functions are declared weak
@@ -212,6 +224,20 @@ et_tick_ratio_t et_pal_ticks_to_ns_multiplier(void)
 
 /* ETDump output: a static buffer (ETDumpGen then never calls malloc), in .noinit like the two pools. */
 static uint8_t __noinit __attribute__((aligned(16))) etdump_buffer[EXEC_ETDUMP_BUF];
+
+/* CRC-32 (IEEE 802.3, the one of zlib.crc32) of the raw dump bytes, bitwise and table-free; printed on the END line so the host can detect
+ * characters lost or added on the console path (FireSim uartlog, pty). Runs after the timed window. */
+static uint32_t etdump_crc32(const uint8_t *p, size_t n)
+{
+	uint32_t c = 0xFFFFFFFFu;
+	for (size_t i = 0; i < n; ++i)
+	{
+		c ^= p[i];
+		for (int k = 0; k < 8; ++k)
+			c = (c >> 1) ^ (0xEDB88320u & (0u - (c & 1u)));
+	}
+	return ~c;
+}
 
 /* Print the dump as base64 between markers, 120 characters per line, so the host script can cut it out of the console log.
  * Encoding derived from write_etdump() in ExecuTorch examples/arm/executor_runner/arm_executor_runner.cpp @ 681c3edb47. */
@@ -238,11 +264,13 @@ static void print_etdump(executorch::etdump::ETDumpGen &gen, MemoryAllocator &al
 		return;
 	}
 	et_tick_ratio_t ratio = et_pal_ticks_to_ns_multiplier();
+	if (!g_exec_order.empty())
+		printf("ETDUMP RUNS %s\n", g_exec_order.c_str());
 	printf("ETDUMP BEGIN size=%zu buffer=%u ticks=mcycle ns_per_tick=%llu/%llu\n", r.size, (unsigned)EXEC_ETDUMP_BUF,
 		   (unsigned long long)ratio.numerator, (unsigned long long)ratio.denominator);
 	for (size_t i = 0; i < out_len; i += 120)
 		printf("%.*s\n", (int)(out_len - i < 120 ? out_len - i : 120), enc + i);
-	printf("ETDUMP END\n");
+	printf("ETDUMP END crc32=%08x\n", etdump_crc32(reinterpret_cast<const uint8_t *>(r.buf), r.size));
 }
 #endif
 
@@ -512,9 +540,9 @@ bool load_named(Program &program, const char *name, MemoryAllocator &method_allo
 	out.planned = std::make_unique<HierarchicalAllocator>(Span<Span<uint8_t>>(out.spans.data(), out.spans.size()));
 	out.manager = std::make_unique<MemoryManager>(&method_alloc, out.planned.get(), &temp_alloc);
 #ifdef EXEC_HAVE_PTD
-	Result<Method> m = program.load_method(name, out.manager.get(), nullptr, g_named_data_map);
+	Result<Method> m = program.load_method(name, out.manager.get(), g_event_tracer, g_named_data_map);
 #else
-	Result<Method> m = program.load_method(name, out.manager.get());
+	Result<Method> m = program.load_method(name, out.manager.get(), g_event_tracer);
 #endif
 	if (!m.ok())
 	{
@@ -590,6 +618,7 @@ static int run_step_mode(Program &program)
 			printf("FAIL: kv_proj set_input %zu\n", i);
 			return 1;
 		}
+	ETD_NOTE("kv_proj");
 	uint64_t i0 = read_minstret();
 	Error st = kv.method->execute();
 	uint64_t kv_instret = read_minstret() - i0;
@@ -625,6 +654,11 @@ static int run_step_mode(Program &program)
 		{
 			printf("FAIL: denoise_step set_input (step %zu)\n", step);
 			return 1;
+		}
+		{
+			char lbl[24];
+			snprintf(lbl, sizeof lbl, "denoise_step_%zu", step + 1);
+			ETD_NOTE(lbl);
 		}
 		uint64_t s0 = read_minstret();
 		st = dn.method->execute();
@@ -793,6 +827,7 @@ static int run_chain_mode(Program &program)
 	};
 	std::vector<Row> rows;
 	auto run = [&](Method &m, const char *name) {
+		ETD_NOTE(name);
 		uint64_t i0 = read_minstret();
 		Error st = m.execute();
 		uint64_t d = read_minstret() - i0;
@@ -933,10 +968,24 @@ int main()
 	}
 	g_named_data_map = &*ptd_map;
 #endif
+#if defined(EXEC_ETDUMP) && (defined(EXEC_STEP_MODE) || defined(EXEC_CHAIN_MODE))
+	/* One ETDumpGen for every load_method() of the mode (load_named()), so one dump holds all methods and runs. The dump is printed after
+	 * the mode returned (its Methods are gone, the pool bytes are free again), still before chipyard_sim_exit(). ETDumpGen aborts with an
+	 * ET_CHECK message (it does not truncate) when EXEC_ETDUMP_BUF is too small. */
+	static executorch::etdump::ETDumpGen mode_etdump(Span<uint8_t>(etdump_buffer, sizeof(etdump_buffer)));
+	g_event_tracer = &mode_etdump;
+	auto print_mode_etdump = [&]() {
+		RiscvMemoryAllocator txt_alloc(method_allocation_pool_size, method_allocation_pool);
+		print_etdump(mode_etdump, txt_alloc);
+	};
+#endif
 #ifdef EXEC_STEP_MODE
 	if (!program.ok())
 		chipyard_sim_exit(1);
 	g_rc = run_step_mode(*program);
+#ifdef EXEC_ETDUMP
+	print_mode_etdump();
+#endif
 	ET_LOG(Info, "Program complete, exiting.");
 	ET_LOG(Info, "\04");
 	chipyard_sim_exit(g_rc);
@@ -945,6 +994,9 @@ int main()
 	if (!program.ok())
 		chipyard_sim_exit(1);
 	g_rc = run_chain_mode(*program);
+#ifdef EXEC_ETDUMP
+	print_mode_etdump();
+#endif
 	ET_LOG(Info, "Program complete, exiting.");
 	ET_LOG(Info, "\04");
 	chipyard_sim_exit(g_rc);

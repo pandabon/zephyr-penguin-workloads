@@ -41,9 +41,10 @@
 #                                         a .pte that was not the one built in (the runner fails with a missing-kernel error otherwise)
 #           -DEXEC_REPEAT=N, -DEXEC_PC_SAMPLE=us, -DEXEC_XNN_PROFILE=ON   see "opt-in instrumentation" below
 #           -DEXEC_ETDUMP=ON [-DEXEC_ETDUMP_BUF=bytes] [-DEXEC_CPU_HZ=hz]
-#                                         ExecuTorch's OFFICIAL profiling: event tracer + ETDump. Plain mode only. After the run the
+#                                         ExecuTorch's OFFICIAL profiling: event tracer + ETDump, in plain, step and chain mode (one dump holds all methods
+#                                         and runs; the order of the runs is printed as "ETDUMP RUNS ..."). After the run the
 #                                         runner prints the ETDump base64 between "ETDUMP BEGIN" / "ETDUMP END"; the host script
-#                                         scripts/etdump_inspect.py turns it into a per-operator table with ExecuTorch's Inspector
+#                                         tools/etdump_inspect.py turns it into a per-operator table with ExecuTorch's Inspector
 #                                         (and an ETRecord from the export, if you have one). Times are mcycle ticks. Off by default.
 #
 # Derived from executorch/mnist in this repo (same CMake opt-in/mirror scheme; adds the embedded
@@ -311,16 +312,10 @@ endif()
 #   The ETDump itself stores raw ticks, so the Inspector is run with --source_time_scale cycles. The ratio matters for the XNNPACK
 #   per-operator rows (XNNProfiler::submit_trace() converts XNNPACK's microseconds into ticks with it, backends/xnnpack/runtime/
 #   profiling/XNNProfiler.cpp) and for the ET_LOG timestamps.
-option(EXEC_ETDUMP "Event tracer + ETDump profiling (ExecuTorch devtools); prints the dump base64 after the run (plain mode only)" OFF)
-set(EXEC_ETDUMP_BUF 524288 CACHE STRING "EXEC_ETDUMP: size in bytes of the static ETDump buffer")
+option(EXEC_ETDUMP "Event tracer + ETDump profiling (ExecuTorch devtools); prints the dump base64 after the run (plain, step and chain mode)" OFF)
+set(EXEC_ETDUMP_BUF 4194304 CACHE STRING "EXEC_ETDUMP: size in bytes of the static ETDump buffer")
 set(EXEC_CPU_HZ 50000000 CACHE STRING "EXEC_ETDUMP: core clock in Hz for the PAL ticks->ns ratio")
 if(EXEC_ETDUMP)
-  if(EXEC_STEP_DATA OR EXEC_CHAIN_DATA)
-    message(WARNING "EXEC_ETDUMP with step/chain mode is untested and does nothing there: the tracer is attached in the plain mode only")
-  endif()
-  if(EXEC_PTD)
-    message(WARNING "EXEC_ETDUMP with EXEC_PTD is untested")
-  endif()
   add_compile_definitions(EXEC_ETDUMP=1 EXEC_ETDUMP_BUF=${EXEC_ETDUMP_BUF} EXEC_CPU_HZ=${EXEC_CPU_HZ})
   set(EXECUTORCH_ENABLE_EVENT_TRACER ON CACHE BOOL "" FORCE)
   set(EXECUTORCH_BUILD_DEVTOOLS ON CACHE BOOL "" FORCE)
