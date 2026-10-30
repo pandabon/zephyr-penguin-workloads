@@ -9,6 +9,10 @@
    (the runner's PAL clock is mcycle: core cycles on the FPGA, instructions on Spike);
 3. prints one row per profiled event (operator calls, XNNPACK delegate operators), as a Markdown table or CSV.
 
+An XNNPACK operator row (kind xnn-op) is named "[n<i>] <XNNPACK operator name> #<k>" when it comes from serialized node i of the
+delegate: the Inspector matches "[n<i>]" in the name with the ETRecord's delegate map and fills op_types, debug_handles and
+python_source with the ATen op(s) behind that node. A name without "[n<i>]" is an operator XNNPACK inserted itself (no ATen op).
+
 Needs the python of the ExecuTorch checkout the .pte was exported with, e.g. smolvla-explore/.venv-main/bin/python.
 The ETRecord comes from the export: smolvla-explore/export_expert_layer.py --etrecord.
 
@@ -122,6 +126,8 @@ def main():
     df = build_table(insp)
     df.to_csv(prefix + ".csv", index=False)
     print("event blocks: %s, events: %d, ETRecord: %s" % ([b.name for b in insp.event_blocks], len(df), "yes" if a.etrecord else "no"))
+    xs = df[(df["block"] == "Execute") & (df["kind"] == "xnn-op")]
+    print("XNNPACK operator rows in Execute: %d, linked to ATen ops: %d" % (len(xs), (xs["op_types"] != "").sum()))
 
     shown = df if a.all_blocks else df[df["block"] == "Execute"]
     if a.hide:
