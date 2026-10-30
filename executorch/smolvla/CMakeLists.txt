@@ -322,6 +322,8 @@ set(EXEC_ETDUMP_BUF 4194304 CACHE STRING "EXEC_ETDUMP: size in bytes of the stat
 set(EXEC_CPU_HZ 50000000 CACHE STRING "EXEC_ETDUMP: core clock in Hz for the PAL ticks->ns ratio")
 if(EXEC_ETDUMP)
   add_compile_definitions(EXEC_ETDUMP=1 EXEC_ETDUMP_BUF=${EXEC_ETDUMP_BUF} EXEC_CPU_HZ=${EXEC_CPU_HZ})
+  # XNNPACK's per-operator rows then read mcycle too, instead of the 100 us Zephyr clock (forks/XNNPACK src/runtime.c xnn_read_timer)
+  add_compile_definitions(XNN_TIMER_MCYCLE_HZ=${EXEC_CPU_HZ})
   set(EXECUTORCH_ENABLE_EVENT_TRACER ON CACHE BOOL "" FORCE)
   set(EXECUTORCH_BUILD_DEVTOOLS ON CACHE BOOL "" FORCE)
   message(STATUS "ETDump: event tracer on, buffer ${EXEC_ETDUMP_BUF} bytes, PAL clock mcycle at ${EXEC_CPU_HZ} Hz")
