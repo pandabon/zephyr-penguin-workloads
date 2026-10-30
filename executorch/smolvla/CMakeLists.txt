@@ -287,6 +287,12 @@ set(EXEC_PC_TABLE 16384 CACHE STRING "PC sampler hash-table entries (power of tw
 option(EXEC_XNN_PROFILE "Build ExecuTorch's XNNPACK backend with ENABLE_XNNPACK_PROFILING: one log line per XNNPACK operator and run" OFF)
 option(EXEC_ERR_STATS "Print one ERRSTATS line per checked output (abs and rel error mean/min/max, RMSE, PSNR vs the reference), after the timed windows" OFF)
 add_compile_definitions(EXEC_REPEAT=${EXEC_REPEAT} EXEC_PC_SAMPLE=${EXEC_PC_SAMPLE} EXEC_PC_TABLE=${EXEC_PC_TABLE})
+# Debug aid: GCC expands memcpy() inline into e8,m8 vle8.v/vse8.v (not auto-vectorization: -fno-tree-vectorize keeps it). ETDump rows came
+# back corrupted on FireSim but not on Spike, so this sends those copies to libc, to test whether they are the cause.
+option(EXEC_NO_INLINE_VCOPY "Build ExecuTorch, XNNPACK and flatcc with -mstringop-strategy=libcall" OFF)
+if(EXEC_NO_INLINE_VCOPY)
+  add_compile_options(-mstringop-strategy=libcall)
+endif()
 if(EXEC_ERR_STATS)
   add_compile_definitions(EXEC_ERR_STATS=1)
 endif()
