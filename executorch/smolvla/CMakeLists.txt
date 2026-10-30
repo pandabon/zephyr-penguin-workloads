@@ -40,6 +40,7 @@
 #                                         ~4.6 MB smaller image, i.e. ~7 min less UART load at 115200 baud. Turn it off only to run
 #                                         a .pte that was not the one built in (the runner fails with a missing-kernel error otherwise)
 #           -DEXEC_REPEAT=N, -DEXEC_PC_SAMPLE=us, -DEXEC_XNN_PROFILE=ON   see "opt-in instrumentation" below
+#           -DEXEC_ERR_STATS=ON           one ERRSTATS line per checked output: abs/rel error mean, min, max, RMSE, PSNR vs the reference
 #           -DEXEC_ETDUMP=ON [-DEXEC_ETDUMP_BUF=bytes] [-DEXEC_CPU_HZ=hz]
 #                                         ExecuTorch's OFFICIAL profiling: event tracer + ETDump, in plain, step and chain mode (one dump holds all methods
 #                                         and runs; the order of the runs is printed as "ETDUMP RUNS ..."). After the run the
@@ -284,7 +285,11 @@ set(EXEC_REPEAT 1 CACHE STRING "Plain mode: run execute() this many times on the
 set(EXEC_PC_SAMPLE 0 CACHE STRING "Timer-interrupt PC sampler period in microseconds (0 = off); see src/pc_sampler.h")
 set(EXEC_PC_TABLE 16384 CACHE STRING "PC sampler hash-table entries (power of two, 16 bytes each, .noinit)")
 option(EXEC_XNN_PROFILE "Build ExecuTorch's XNNPACK backend with ENABLE_XNNPACK_PROFILING: one log line per XNNPACK operator and run" OFF)
+option(EXEC_ERR_STATS "Print one ERRSTATS line per checked output (abs and rel error mean/min/max, RMSE, PSNR vs the reference), after the timed windows" OFF)
 add_compile_definitions(EXEC_REPEAT=${EXEC_REPEAT} EXEC_PC_SAMPLE=${EXEC_PC_SAMPLE} EXEC_PC_TABLE=${EXEC_PC_TABLE})
+if(EXEC_ERR_STATS)
+  add_compile_definitions(EXEC_ERR_STATS=1)
+endif()
 if(EXEC_STEP_DATA OR EXEC_CHAIN_DATA)
   if(EXEC_REPEAT GREATER 1 OR EXEC_PC_SAMPLE GREATER 0)
     message(WARNING "EXEC_REPEAT and EXEC_PC_SAMPLE apply to the plain mode only; step/chain mode ignores them")

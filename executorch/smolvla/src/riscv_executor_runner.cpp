@@ -360,6 +360,62 @@ float tensor_value(const Tensor &t, size_t j)
 	return t.const_data_ptr<float>()[j];
 }
 
+#ifdef EXEC_ERR_STATS
+// Reference element j, in the output's own dtype (float32, or bf16 bit patterns)
+double ref_value(const Tensor &t, const uint8_t *ref, size_t j)
+{
+	if (t.scalar_type() == ScalarType::BFloat16)
+	{
+		uint16_t raw;
+		std::memcpy(&raw, ref + j * 2, 2);
+		uint32_t bits = (uint32_t)raw << 16;
+		float v;
+		std::memcpy(&v, &bits, sizeof(float));
+		return v;
+	}
+	float v;
+	std::memcpy(&v, ref + j * sizeof(float), sizeof(float));
+	return v;
+}
+
+// Element-wise error of an output against its reference; runs after every timed window, so execute() counts do not change.
+// Relative error = |out - ref| / |ref|, skipping elements with |ref| below 1e-6 of max|ref|: near zero it means nothing (rel_skipped
+// counts them). PSNR = 20 log10((max ref - min ref) / RMSE): these are feature tensors, so the peak is the reference's own range.
+template <typename Out, typename Ref> void err_stats(const char *label, size_t n, Out out, Ref ref)
+{
+	double ref_lo = INFINITY, ref_hi = -INFINITY, ref_peak = 0;
+	for (size_t j = 0; j < n; ++j)
+	{
+		double r = ref(j);
+		ref_lo = r < ref_lo ? r : ref_lo;
+		ref_hi = r > ref_hi ? r : ref_hi;
+		ref_peak = std::fabs(r) > ref_peak ? std::fabs(r) : ref_peak;
+	}
+	double abs_sum = 0, abs_min = INFINITY, abs_max = 0, rel_sum = 0, rel_min = INFINITY, rel_max = 0, err2 = 0;
+	size_t rel_n = 0;
+	for (size_t j = 0; j < n; ++j)
+	{
+		double r = ref(j), d = std::fabs(out(j) - r);
+		abs_sum += d;
+		abs_min = d < abs_min ? d : abs_min;
+		abs_max = d > abs_max ? d : abs_max;
+		err2 += d * d;
+		if (std::fabs(r) < 1e-6 * ref_peak)
+			continue;
+		double q = d / std::fabs(r);
+		rel_sum += q;
+		rel_min = q < rel_min ? q : rel_min;
+		rel_max = q > rel_max ? q : rel_max;
+		++rel_n;
+	}
+	double rmse = std::sqrt(err2 / (double)n);
+	printf("ERRSTATS %s n=%zu abs_mean=%e abs_min=%e abs_max=%e rel_mean=%e rel_min=%e rel_max=%e rel_skipped=%zu rmse=%e ref_range=%e "
+		   "psnr_db=%.2f\n",
+		   label, n, abs_sum / (double)n, abs_min, abs_max, rel_sum / (double)rel_n, rel_min, rel_max, n - rel_n, rmse, ref_hi - ref_lo,
+		   20.0 * std::log10((ref_hi - ref_lo) / rmse));
+}
+#endif
+
 // Which RISC-V vector support did XNNPACK detect? (On Linux it asks getauxval(); in our Zephyr
 // patch of hardware-config.c it uses the compile-time ISA plus the vlenb CSR.)
 void report_xnnpack_config()
@@ -701,6 +757,13 @@ static int run_step_mode(Program &program)
 	printf("final actions relL2 vs PyTorch lerobot-bf16 = %e (tol %e), vs PyTorch fp32 = %e\n", r_bf16, (double)EXEC_TOL,
 		   r_fp32);
 	printf("final actions[:, :6] relL2 vs LEROBOT's actions = %e (tol %e)\n", r_lerobot, (double)EXEC_TOL);
+#ifdef EXEC_ERR_STATS
+	err_stats("final_actions_vs_lerobot", kChunk * kRealAct,
+			  [&](size_t j) { return (double)xbuf[(j / kRealAct) * kAct + j % kRealAct]; },
+			  [&](size_t j) { return (double)exp_lerobot[j]; });
+	err_stats("final_x_vs_bf16_loop", kChunk * kAct, [&](size_t j) { return (double)xbuf[j]; }, [&](size_t j) { return (double)exp_final[j]; });
+	err_stats("final_x_vs_fp32_loop", kChunk * kAct, [&](size_t j) { return (double)xbuf[j]; }, [&](size_t j) { return (double)exp_fp32[j]; });
+#endif
 	bool pass = finite && r_lerobot < (double)EXEC_TOL;
 	printf("%s\n", pass ? "PASS" : "FAIL");
 	return pass ? 0 : 1;
@@ -840,6 +903,9 @@ static int run_chain_mode(Program &program)
 		double r = rel_l2_tensor(t, exp);
 		bool ok = std::isfinite(r) && r <= (double)EXEC_TOL;
 		printf("STAGE %-14s relL2 vs PyTorch bf16 chain = %e  %s\n", name, r, gated ? (ok ? "ok" : "OVER TOL") : "(reported)");
+#ifdef EXEC_ERR_STATS
+		err_stats(name, t.numel(), [&](size_t j) { return (double)tensor_value(t, j); }, [&](size_t j) { return ref_value(t, exp, j); });
+#endif
 		if (gated && !ok)
 			pass = false;
 	};
@@ -1227,6 +1293,12 @@ int main()
 				}
 				double r = std::sqrt(err2) / std::sqrt(exp2);
 				printf("MULTI set %zu output %zu relL2 = %e\n", s, i, r);
+#ifdef EXEC_ERR_STATS
+				char label[40];
+				snprintf(label, sizeof label, "set%zu_output%zu", s, i);
+				err_stats(label, n, [&](size_t j) { return (double)tensor_value(t, j); },
+						  [&](size_t j) { return ref_value(t, exec_expected + off, j); });
+#endif
 				if (s == 0 && !(r < (double)EXEC_TOL))
 					all_pass = false;
 				off += n * esz;
@@ -1296,6 +1368,9 @@ int main()
 			}
 			double rel_l2 = std::sqrt(err2) / std::sqrt(exp2);
 			printf("max|out-exp|=%e max|exp|=%e relL2=%e tol=%e\n", max_err, max_exp, rel_l2, (double)EXEC_TOL);
+#ifdef EXEC_ERR_STATS
+			err_stats("output0", n, [&](size_t j) { return (double)tensor_value(t, j); }, expected_value);
+#endif
 			bool pass = rel_l2 < (double)EXEC_TOL; // false for NaN as well
 			printf("%s\n", pass ? "PASS" : "FAIL");
 			if (!pass)
