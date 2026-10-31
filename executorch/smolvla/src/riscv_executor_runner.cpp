@@ -990,6 +990,20 @@ static int run_chain_mode(Program &program)
 	printf("CHAIN TOTAL          %12" PRIu64 "  (sum of execute() windows)\n", total);
 	printf("final actions[0..3] = %f %f %f %f\n", xbuf[0], xbuf[1], xbuf[2], xbuf[3]);
 	printf("final actions relL2 vs PyTorch fp32 chain = %e (reported)\n", r32);
+#ifdef EXEC_DUMP_ACTIONS
+	// lerobot's 6 real action dims as raw f32 bits, after the timed windows, so the host can compare them with any reference
+	printf("ACTIONS BEGIN steps=%zu dims=%zu\n", kChunk, kRealAct);
+	for (size_t t = 0; t < kChunk; ++t)
+	{
+		for (size_t c = 0; c < kRealAct; ++c)
+		{
+			uint32_t bits;
+			std::memcpy(&bits, &xbuf[t * kAct + c], sizeof bits);
+			printf("%08" PRIx32 "%c", bits, c + 1 == kRealAct ? '\n' : ' ');
+		}
+	}
+	printf("ACTIONS END\n");
+#endif
 	pass = pass && finite;
 	printf("%s (tol %e on every K/V and the final actions)\n", pass ? "PASS" : "FAIL", (double)EXEC_TOL);
 	return pass ? 0 : 1;
