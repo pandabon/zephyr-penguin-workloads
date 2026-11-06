@@ -32,9 +32,7 @@ manifest:
       groups: [executorch]
     - name: xnnpack
       url: https://github.com/pandabon/XNNPACK
-      # branch torch-1.0.0-bump-bf16 (RVV, Zvfbfmin, Zvfbfa kernels). On 2026-11-06 this commit was
-      # only in the author's local clone, not on the remote (its branch tip there is cb847e7):
-      # push it before turning the group on, or `west update` cannot fetch it.
+      # branch torch-1.0.0-bump-bf16 (RVV, Zvfbfmin, Zvfbfa kernels; pushed 2026-11-06).
       revision: c0d34218458221e5d5a2c045463a215736ac6c06
       path: modules/lib/XNNPACK
       groups: [executorch]
