@@ -170,13 +170,23 @@ programs on the bench only to test those instructions: they are the point of run
 
 A small ExecuTorch model (XNNPACK delegate, RISC-V Vector micro-kernels) runs on the SoC under Zephyr. Console is HTIF on
 `chipyard_penguin/penguin` and the UART on `chipyard_penguin/penguin/vcu118_ta`. ExecuTorch and XNNPACK are **not** part
-of this repo (no copy, no submodule): you provide them, nothing is downloaded and nothing in them is modified. Without
-them CMake stops at configure with a message listing what is missing, and the rest of the repo is unaffected.
+of this repo (no copy, no submodule). `west.yml` pins them in the west group `executorch`, which is **off by default**:
+a plain `west update` fetches neither. Turn the group on once per workspace, then fetch:
+
+```sh
+west config manifest.group-filter -- +executorch   # persistent: stored in .west/config
+west update                                        # clones both into <west topdir>/modules/lib/
+```
+
+Use this persistent form. The one-off `west update --group-filter +executorch` clones them too, but west still counts
+them as inactive afterwards (experiment X4, 2026-11-05). Or bring your own checkouts with `EXECUTORCH_DIR` /
+`XNNPACK_DIR`, which win over the group. Without either, CMake stops at configure with a message naming both ways, and
+the rest of the repo is unaffected. Nothing in the checkouts is modified.
 
 | What | Variable | Tested with |
 |---|---|---|
-| ExecuTorch checkout, directory **named `executorch`** | `EXECUTORCH_DIR` | pandabon/executorch branch `zephyr-1.0.1-bf16` @ `c19e05968e8d` (ExecuTorch 1.0.1 + bf16/RVV changes) |
-| XNNPACK checkout | `XNNPACK_DIR` (optional if `EXECUTORCH_DIR/backends/xnnpack/third-party/XNNPACK` works) | pandabon/XNNPACK branch `torch-1.0.0-bump-bf16` @ `c0d34218458` (RVV, Zvfbfmin, Zvfbfa kernels) |
+| ExecuTorch checkout, directory **named `executorch`** | group `executorch`, or `EXECUTORCH_DIR` | pandabon/executorch branch `zephyr-1.0.1-bf16` @ `c19e05968e8d` (ExecuTorch 1.0.1 + bf16/RVV changes) |
+| XNNPACK checkout | group `executorch`, or `XNNPACK_DIR` (optional if `EXECUTORCH_DIR/backends/xnnpack/third-party/XNNPACK` works) | pandabon/XNNPACK branch `torch-1.0.0-bump-bf16` @ `c0d34218458` (RVV, Zvfbfmin, Zvfbfa kernels; not on the remote yet, see below) |
 | `flatc` and `python3` with `torchgen`, `pyyaml` | on `PATH`, or `FLATC_EXECUTABLE`, `PYTHON_EXECUTABLE` | an environment with flatc, torch 2.9.1, executorch 1.0.1 |
 | the board repo (zephyr-penguin) and its SDK environment | your west workspace | zephyr-chipyard-bsp `dev/main` 10fc321, SDK 1.0.0-beta1 |
 
@@ -185,7 +195,7 @@ building does not. The CMake builds ExecuTorch through a symlink mirror in the b
 land in the build directory and `EXECUTORCH_DIR` stays untouched.
 
 ```sh
-export EXECUTORCH_DIR=/path/to/executorch XNNPACK_DIR=/path/to/XNNPACK
+export EXECUTORCH_DIR=/path/to/executorch XNNPACK_DIR=/path/to/XNNPACK   # skip with the group on
 export PATH=/path/to/env/bin:$PATH             # flatc, python3 (or PYTHON_EXECUTABLE / FLATC_EXECUTABLE)
 executorch/mnist/scripts/build.sh chipyard_penguin/penguin           mnist_mlp_fp32 build/exec_fp32_chip   # about 4 min at -j16
 executorch/mnist/scripts/build.sh chipyard_penguin/penguin           mnist_mlp_bf16 build/exec_bf16_chip
@@ -195,7 +205,7 @@ west build -d build/exec_fp32_chip -t run          # Spike, ISA derived from the
 `build.sh` prints the `west build` line it runs (`-DEXEC_MODEL=<name or path to .pte>`). Models in
 `executorch/mnist/models/`: `mnist_mlp_fp32`, `mnist_mlp_bf16`, `lenet_bf16_user` (provenance in `models/SOURCES.txt`).
 Re-export: `python executorch/mnist/scripts/gen_model.py --precision bf16 --pte executorch/mnist/models/mnist_mlp_bf16.pte`.
-Twister/`run_tests.py` scenarios (`workload.executorch.*`, tag `executorch`) are build-only and need the variables above.
+Twister/`run_tests.py` scenarios (`workload.executorch.*`, tag `executorch`) are build-only and need the group or the variables above.
 
 **In the maintainers' workspace** (`~/toolsC/bringup`) the verified build used:
 ```sh
@@ -254,7 +264,8 @@ XNNPACK micro-kernels (the "prod" set links all of them); trimming that is the w
 Notes: the runner's inputs come from a static pool, so the stock `BufferCleanup` would `free()` them when `main()`
 returns (fault in `set_chunk_used`); the runner passes an empty span instead. `CONFIG_SMP=y` with
 `MP_MAX_NUM_CPUS=1` and POSIX threads are ExecuTorch's threadpool requirements, not a second hart. XNNPACK
-`c0d34218458` was only in the author's local clone when this was written (not yet on the `pandabon/XNNPACK` remote).
+`c0d34218458` was only in the author's local clone when this was written (not yet on the `pandabon/XNNPACK` remote,
+checked 2026-11-06), so the group's `west update` cannot fetch it until it is pushed.
 
 ## Credits and licences
 

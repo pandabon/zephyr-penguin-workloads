@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-# ExecuTorch workloads are OPT-IN: they need EXECUTORCH_DIR (and usually XNNPACK_DIR) set, plus
-# flatc/python on PATH, or CMake stops at configure. Twister has no "skip unless env var" key,
+# ExecuTorch workloads are OPT-IN: they need the west group `executorch` turned on (or EXECUTORCH_DIR,
+# and usually XNNPACK_DIR, set), plus flatc/python on PATH, or CMake stops at configure. Twister has no "skip unless env var" key,
 # so the tests carry the tag `executorch`: leave them out of a normal run with
 #   twister -e executorch ...
 # and select them with `--tag executorch` after exporting the variables (see the ExecuTorch section of the repo README.md).

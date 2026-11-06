@@ -8,7 +8,10 @@
 #                   backends/xnnpack/third-party/XNNPACK)
 # plus `flatc` and a python3 with torchgen/pyyaml for ExecuTorch's codegen (PYTHON_EXECUTABLE,
 # FLATC_EXECUTABLE or on PATH). Without them the configure step stops with an explanation.
-# Nothing is downloaded and nothing in the given trees is modified.
+# Unset variables default to the checkouts of the west group `executorch` (west.yml, off by
+# default; PW-2): <west topdir>/modules/lib/executorch and <west topdir>/modules/lib/XNNPACK.
+# Turn it on once with `west config manifest.group-filter -- +executorch` and `west update`.
+# CMake downloads nothing, and nothing in the given trees is modified.
 #
 # Model: -DEXEC_MODEL=mnist_mlp_fp32 (default) | mnist_mlp_bf16 | lenet_bf16_user | /path/to/x.pte
 #
@@ -26,9 +29,26 @@ foreach(_v EXECUTORCH_DIR XNNPACK_DIR)
   endif()
 endforeach()
 
-set(_dep_help "\n  This app is an opt-in workload: ExecuTorch and XNNPACK are not part of this repo.\n  See the ExecuTorch section of the repo README.md. Example:\n    export EXECUTORCH_DIR=/path/to/executorch      # directory is named 'executorch'\n    export XNNPACK_DIR=/path/to/XNNPACK\n    export PATH=/path/to/env/bin:$PATH             # flatc + python3 with torchgen, pyyaml\n")
+# Defaults: the west group `executorch` (west.yml). Only used when the checkout exists.
+set(_west_lib "")
+find_program(_west_exe west)
+if(_west_exe)
+  execute_process(COMMAND ${_west_exe} topdir OUTPUT_VARIABLE _west_topdir
+                  OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET RESULT_VARIABLE _west_rc)
+  if(_west_rc EQUAL 0 AND _west_topdir)
+    set(_west_lib "${_west_topdir}/modules/lib")
+  endif()
+endif()
+if(NOT EXECUTORCH_DIR AND _west_lib AND EXISTS "${_west_lib}/executorch/CMakeLists.txt")
+  set(EXECUTORCH_DIR "${_west_lib}/executorch")
+endif()
+if(NOT XNNPACK_DIR AND _west_lib AND EXISTS "${_west_lib}/XNNPACK/CMakeLists.txt")
+  set(XNNPACK_DIR "${_west_lib}/XNNPACK")
+endif()
+
+set(_dep_help "\n  This app is an opt-in workload: ExecuTorch and XNNPACK are not part of this repo.\n  Either turn on the west group that fetches them at the tested commits (once per workspace):\n    west config manifest.group-filter -- +executorch && west update\n  or point at your own checkouts:\n    export EXECUTORCH_DIR=/path/to/executorch      # directory is named 'executorch'\n    export XNNPACK_DIR=/path/to/XNNPACK\n  and in both cases:\n    export PATH=/path/to/env/bin:$PATH             # flatc + python3 with torchgen, pyyaml\n  See the ExecuTorch section of the repo README.md.\n")
 if(NOT EXECUTORCH_DIR OR NOT EXISTS "${EXECUTORCH_DIR}/CMakeLists.txt")
-  message(FATAL_ERROR "EXECUTORCH_DIR is not set or has no CMakeLists.txt (got '${EXECUTORCH_DIR}').${_dep_help}")
+  message(FATAL_ERROR "ExecuTorch not found: EXECUTORCH_DIR is not set or has no CMakeLists.txt (got '${EXECUTORCH_DIR}'), and the west group checkout '${_west_lib}/executorch' is missing.${_dep_help}")
 endif()
 get_filename_component(EXECUTORCH_DIR "${EXECUTORCH_DIR}" REALPATH)
 get_filename_component(_et_name "${EXECUTORCH_DIR}" NAME)
