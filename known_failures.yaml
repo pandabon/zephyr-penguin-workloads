@@ -1,16 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
-# Scenarios expected to fail. The BSP's scripts/run_tests.py (--root = this repo) reports them as
-# XFAIL and flags XPASS when one starts passing: then delete the entry.
+# Scenarios expected to fail. The board repo's (zephyr-penguin) scripts/run_tests.py, run with
+# --root = this repo, reports them as XFAIL and flags XPASS when one starts passing: then delete the entry.
 # Format: known_failures: list of {id, reason, fixed_by}; id = scenario name in sample.yaml/testcase.yaml.
 # (saturn.vec-spmv and saturn.vec-conjugate-gradient were fixed, see the git log.) The RVV
-# context-switch entry moved here from the BSP tests/known_failures.yaml together with the test (D35). The larger
-# ctx_switch test and its .lazy scenario were removed (scarce self-written tests); ctx_switch_min is the reproducer we keep.
-known_failures:
-  - id: arch.riscv.rvv.ctx_switch_min
-    reason: >-
-      Kernel bug (same bug the removed, larger ctx_switch test showed): a thread preempted by
-      an IRQ is saved twice and resumes with vl/vtype = e8,m8,VLMAX. On the
-      stock fork 2 of 3 cases fail in every run: test_preempt_csr reads
-      vl=0x100 vtype=0xc3, test_preempt_compiled faults with an illegal
-      instruction (mcause 2); test_voluntary_csr passes. Hardware to confirm.
-    fixed_by: zephyr-chipyard-bsp patches/zephyr/0005-riscv-v-make-vstate-save-idempotent.patch (not applied)
+# context-switch entry (arch.riscv.rvv.ctx_switch_min) moved to the board repo's
+# tests/known_failures.yaml together with the test (2026-11-06, BSP-3).
+known_failures: []
