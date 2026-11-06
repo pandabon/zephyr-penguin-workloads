@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# This repo is also a Zephyr module, only to hand Zephyr the integration glue for modules its west manifest
+# pulls in (zephyr/modules/modules.cmake). In the maintainers' workspace it is not a west project, so this
+# file is ignored there.
+name: penguin-workloads
+build:
+  settings:
+    module_ext_root: zephyr

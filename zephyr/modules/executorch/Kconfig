@@ -1,0 +1,2 @@
+# SPDX-License-Identifier: Apache-2.0
+# Empty on purpose: the ExecuTorch module has no Kconfig options here (see ../modules.cmake).
