@@ -10,13 +10,12 @@
 manifest:
   projects:
     - name: penguin               # the board repo's Zephyr module name (zephyr/module.yml)
-      url: git@github.com:pandabon/zephyr-penguin.git
+      url: https://github.com/pandabon/zephyr-penguin
       path: zephyr-penguin
-      # Pinned to the board repo after its reorg (moved samples and tests, front ends removed,
-      # module renamed penguin, repo renamed zephyr-penguin). This is a commit of the board repo's
-      # development line, which is not on GitHub (GitHub has only the public main): to build outside
-      # the maintainers' workspace, replace it with the matching public main commit.
-      revision: 67c68a99a2fec4986a32da2e43484258aed1579d
+      # The board repo's public main (GitHub has only that branch), so a fresh workspace can fetch
+      # it. Its code matches the development commit these apps were last built against (23a92c4);
+      # the two differ only in comments and README wording.
+      revision: 2dcab0911cc1e1b905670d74ebd9003f3ffb134d
       import: true                # also fetches Zephyr at the SHA the board repo pins
 
     # Opt-in group `executorch` (PW-2): the sources executorch/mnist builds. Off by default, so a
