@@ -1,8 +1,10 @@
-# penguin-workloads
+# zephyr-penguin-workloads
 
 Programs that run on the **Penguin** SoC (Shuttle RISC-V core + Saturn vector unit + Atlas accelerator): tests,
-benchmarks and workloads, as Zephyr applications. The board port itself (SoC, board, drivers, runner) lives in the
-[Chipyard Zephyr BSP](https://github.com/pandabon/zephyr-chipyard-bsp); this repo only holds what runs on it.
+benchmarks and workloads, as Zephyr applications. The board port itself (SoC, board, runner, test runner) and the samples that need nothing but the board live
+in the board repo, [zephyr-penguin](https://github.com/pandabon/zephyr-chipyard-bsp) (still at its old URL and
+folder name, `zephyr-chipyard-bsp`); this repo holds the workloads with heavier dependencies. The local folder is
+still called `penguin-workloads` until it is renamed.
 
 **Private** for now. Part of it is the Atlas team's code, which must be cleared with them before this repo is
 published (see Credits).
@@ -13,12 +15,11 @@ published (see Credits).
 |---|---|---|
 | `atlas/upstream/` | The Atlas/Saturn team's 22 host tests (`tests/saturn_atlas_*.c`, `atlas_alu_basic.c`) built from source, one test per build (`-DATLAS_TEST=<name>`). 13 build as they are; 9 need `torch` to generate golden data. | nothing (torch for 9) |
 | `atlas/isa/` | The Atlas team's 121 ISA-level baremetal tests (`baremetal/assembly/*.S`), assembled and wrapped in the team's own C harness at build time, one test per build (`-DATLAS_ISA_TEST=<name>`). | python venv (numpy, numba, torch) for the golden data |
-| `basics/` | `hello_world`, `timer`, `mt_rvv` (4 threads, each keeps its vector register across a yield): small bring-up checks, single hart. | nothing |
+| `basics/` | `hello_world`: the smallest bring-up check, single hart. (`timer` and `mt_rvv` moved to the board repo's `samples/`.) | nothing |
 | `saturn/benchmarks/` | 55 of Saturn's vector benchmarks as one Zephyr app (`-DSATURN_BENCH=<name>`). | nothing |
 | `executorch/mnist/` | A small ExecuTorch model (XNNPACK RVV kernels) on the SoC. **Opt-in.** | ExecuTorch + XNNPACK checkouts, `flatc`, python |
 | `third_party/tapeout-chipyard/` | The copied Atlas team sources those apps build. Same paths as in the tapeout-chipyard repo, so a checkout can replace it. Read `NOTICE`. | - |
-| `tests/rvv/ctx_switch_min/` | Minimal reproducer of the RVV context-switch bug (V state saved twice; the stock fork fails 2 of 3 cases, expected). Moved from the BSP with its history (D35). The larger `ctx_switch`, `vlen`, `bf16` and `memregion` tests were removed (self-written tests are kept scarce; see git history). | nothing |
-| `known_failures.yaml` | Scenarios expected to fail: `arch.riscv.rvv.ctx_switch_min` (kernel bug, see the file). | - |
+| `known_failures.yaml` | Scenarios expected to fail (none today). The RVV context-switch reproducer `ctx_switch_min` and its entry moved to the board repo (`tests/arch/rvv/ctx_switch_min`). | - |
 
 Each group is a folder with its own apps (`<group>/<app>/`) and its own opt-in dependencies; a new group never adds
 dependencies to the others.
@@ -28,36 +29,43 @@ Every app has a `sample.yaml` with scenarios for the two boards: `chipyard_pengu
 
 ## Get started
 
-Inside the maintainers' workspace (`~/toolsC/bringup`, which already has the BSP and Zephyr) nothing is needed
-beyond `source ../env.sh`. Anywhere else:
+Inside the maintainers' workspace (`~/toolsC/bringup`, which already has the board repo and Zephyr) nothing is
+needed beyond `source ../env.sh`. Anywhere else:
 
 ```sh
 mkdir ws && cd ws
-git clone <this repo> penguin-workloads
-west init -l penguin-workloads && west update      # fetches the BSP and the Zephyr fork it pins
-cd penguin-workloads && make -s help
+git clone <this repo> zephyr-penguin-workloads
+west init -l zephyr-penguin-workloads && west update   # fetches the board repo and the Zephyr fork it pins
+cd zephyr-penguin-workloads
 ```
 
-You also need the Zephyr SDK 1.0.0-beta1, Python >= 3.10 with west, cmake < 4 and ninja (`make doctor` from the BSP
-tells you what is missing). `west.yml` pins a BSP commit that exists only locally until the BSP restructure is
-pushed.
+Builds use plain `west build`; the suite runner and the machine check come from the board repo. Find it once per
+shell (west project `penguin` in a workspace made from this repo, the manifest repo in the maintainers' workspace):
+
+```sh
+ZEPHYR_PENGUIN=$(west list -f '{abspath}' penguin 2>/dev/null || west list -f '{abspath}' manifest)
+$ZEPHYR_PENGUIN/scripts/doctor.sh       # says what is missing
+```
+
+You also need the Zephyr SDK 1.0.0-beta1, Python >= 3.10 with west, cmake < 4 and ninja. `west.yml` pins a board
+repo commit that exists only locally until that repo's reorg is published.
 
 ## Build and get ELFs
 
 ```sh
-make build APP=basics/hello_world                  # ELF: <workspace>/build/hello_world/zephyr/zephyr.elf
-make build APP=atlas/upstream CMAKE_ARGS=-DATLAS_TEST=saturn_atlas_pause_resume
-make build APP=basics/hello_world BOARD=chipyard_penguin/penguin/vcu118_ta     # the FPGA variant
+west build -p auto -b chipyard_penguin/penguin -d ../build/hello_world basics/hello_world   # ELF: ../build/hello_world/zephyr/zephyr.elf
+west build -d ../build/hello_world -t run          # run it on Spike; the exit code is the program's
+west build -p auto -b chipyard_penguin/penguin -d ../build/pause_resume atlas/upstream -- -DATLAS_TEST=saturn_atlas_pause_resume
+west build -p auto -b chipyard_penguin/penguin/vcu118_ta -d ../build/hello_ta basics/hello_world   # the FPGA variant
 ```
 
-(Plain `west build -b <board> basics/hello_world -d build/x` works too; the make targets print the command they run.)
-The ELF is a normal Zephyr ELF (`zephyr.elf`, also `zephyr.bin`); hand it to whatever loads the board (for the
+Keep build directories outside the repo (`-d`). The ELF is a normal Zephyr ELF (`zephyr.elf`, also `zephyr.bin`); hand it to whatever loads the board (for the
 FPGA: the TSI loader, e.g. `uart_tsi` from `penguin-bringup-tools`).
 
 **For the bench**: build every app for `vcu118_ta` and collect the ELFs (the build dir of each scenario holds one):
 
 ```sh
-make suite BOARD=chipyard_penguin/penguin/vcu118_ta ARGS=--build-only   # builds the 14 buildable scenarios of that board
+$ZEPHYR_PENGUIN/scripts/run_tests.py --root . --board chipyard_penguin/penguin/vcu118_ta --build-only   # every buildable scenario of that board
 # ELFs: <workspace>/build/test-runner/<scenario>/zephyr/zephyr.elf
 ```
 
@@ -74,7 +82,7 @@ shim adds `ATLASISA <test> PASS|FAIL|TIMEOUT`, the exit code and a watchdog.
 uv venv .venv --python 3.12                       # opt-in, gitignored; the generators import torch/numpy/numba
 uv pip install --python .venv/bin/python -r requirements-atlas.txt     # CPU torch, about 1 GB in total
 west build -b chipyard_penguin/penguin/vcu118_ta atlas/isa -- -DATLAS_ISA_TEST=mxu0_push_pop
-make suite ARGS='-f atlas_isa' BOARD=chipyard_penguin/penguin/vcu118_ta     # all 121 (about 7 min with -j 12)
+$ZEPHYR_PENGUIN/scripts/run_tests.py --root . -f atlas_isa --board chipyard_penguin/penguin/vcu118_ta -j 12   # all 121 (about 7 min)
 ```
 
 `.venv/bin/python` is picked automatically (override: `-DATLAS_PYTHON=`). The model/bench notes under "Run on
@@ -85,10 +93,10 @@ Spike" apply too. Copy and licence details: `third_party/tapeout-chipyard/NOTICE
 Plain Spike has no Atlas, so these apps are **build-only** by default (they would trap on the first Atlas register
 access). The Atlas Spike model (`atlas-spike-model`, a Spike plugin with the Atlas registers, IMEM, VMEM and a
 scalar ISA, but no tensor/DMA operations) can run them. Its Atlas devices are given to Spike as extra arguments
-(`SPIKE_EXTRA_ARGS`, honoured by the BSP's run target):
+(`SPIKE_EXTRA_ARGS`, honoured by the board repo's run target):
 
 ```sh
-make suite ARGS=--build-only                  # build everything first (ELFs under <ws>/build/test-runner)
+$ZEPHYR_PENGUIN/scripts/run_tests.py --root . --build-only   # build everything first (ELFs under <ws>/build/test-runner)
 scripts/run_with_atlas_model.sh <model>/libatlas_spike.so <ws>/build/test-runner
 # one app by hand: SPIKE_EXTRA_ARGS="--extlib=<model>/libatlas_spike.so --device=atlas,imem,0x20000 \
 #   --device=atlas,csr,0x40000 --device=atlas,vmem,0x20000000" west build -d <builddir> -t run
@@ -104,12 +112,14 @@ which would hang real hardware) / FAIL / TIMEOUT. Status 2026-10-16 with the mod
 ## Run the whole suite
 
 ```sh
-make suite                                                  # build all scenarios of the default board
-make suite BOARD=chipyard_penguin/penguin/vcu118_ta         # the other board
-make suite ARGS='-f saturn_atlas_pause'                     # filter by name or tag
+$ZEPHYR_PENGUIN/scripts/run_tests.py --root . -j 16                                      # every scenario of the default board, on Spike
+$ZEPHYR_PENGUIN/scripts/run_tests.py --root . --board chipyard_penguin/penguin/vcu118_ta  # the other board
+$ZEPHYR_PENGUIN/scripts/run_tests.py --root . -f saturn_atlas_pause                       # filter by name or tag
+$ZEPHYR_PENGUIN/scripts/run_tests.py --root . --list                                      # list the scenarios
 ```
 
-`make suite` is the BSP's `scripts/run_tests.py --root .`; it reads `known_failures.yaml` from here. Scenarios of
+`--root .` makes the board repo's runner read this repo's `sample.yaml`/`testcase.yaml` files and its
+`known_failures.yaml`. Builds and logs go to `<west topdir>/build/test-runner` (`--build-root` to change). Scenarios of
 the other board SKIP; scenarios with `skip: true` (the torch ones) SKIP with a reason.
 
 ## The 9 tests that need torch
@@ -142,10 +152,9 @@ for b in $(ls third_party/saturn-vectors/benchmarks | grep -E '^vec-|_test'); do
   west build -d build/saturn/$b -t run >build/saturn/$b.log 2>&1; echo "$b rc=$?"
 done
 ```
-Expected: 41 pass (`vec-mx-unary` too, since the BSP's Spike ISA includes `zvfofp8min`, BSP 80ae1e9); `vec-spmv` and `vec-conjugate-gradient` pass since the Ara helper sets vtype inside its inline asm (they failed under GCC 14.3 before); the 14 FP8 /
+Expected: 41 pass (`vec-mx-unary` too, since the board repo's Spike ISA includes `zvfofp8min`, zephyr-chipyard-bsp 80ae1e9); `vec-spmv` and `vec-conjugate-gradient` pass since the Ara helper sets vtype inside its inline asm (they failed under GCC 14.3 before); the 14 FP8 /
 bf16-reduction ones trap on Spike by design (`build_only` in `saturn/benchmarks/testcase.yaml`, run them on the FPGA). The
-BSP's `scripts/run_tests.py` reads `testcase.yaml` files only inside the BSP; point it at `saturn/benchmarks/testcase.yaml`
-once it has a `--root` option (proposed).
+suite runner covers them too: `$ZEPHYR_PENGUIN/scripts/run_tests.py --root . -f saturn`.
 
 **For vcu118_ta (FPGA)**: same commands with `-b chipyard_penguin/penguin/vcu118_ta` (Spike also runs these builds);
 load the printed ELF with uart_tsi.
@@ -169,7 +178,7 @@ them CMake stops at configure with a message listing what is missing, and the re
 | ExecuTorch checkout, directory **named `executorch`** | `EXECUTORCH_DIR` | pandabon/executorch branch `zephyr-1.0.1-bf16` @ `c19e05968e8d` (ExecuTorch 1.0.1 + bf16/RVV changes) |
 | XNNPACK checkout | `XNNPACK_DIR` (optional if `EXECUTORCH_DIR/backends/xnnpack/third-party/XNNPACK` works) | pandabon/XNNPACK branch `torch-1.0.0-bump-bf16` @ `c0d34218458` (RVV, Zvfbfmin, Zvfbfa kernels) |
 | `flatc` and `python3` with `torchgen`, `pyyaml` | on `PATH`, or `FLATC_EXECUTABLE`, `PYTHON_EXECUTABLE` | an environment with flatc, torch 2.9.1, executorch 1.0.1 |
-| the BSP and its SDK environment | your BSP workspace (`west`) | zephyr-chipyard-bsp `dev/main` 10fc321, SDK 1.0.0-beta1 |
+| the board repo (zephyr-penguin) and its SDK environment | your west workspace | zephyr-chipyard-bsp `dev/main` 10fc321, SDK 1.0.0-beta1 |
 
 Only `executorch/mnist/scripts/gen_model.py` needs the `executorch`/`torch` python packages (to re-export a model);
 building does not. The CMake builds ExecuTorch through a symlink mirror in the build directory, so flatcc's build outputs
@@ -186,7 +195,7 @@ west build -d build/exec_fp32_chip -t run          # Spike, ISA derived from the
 `build.sh` prints the `west build` line it runs (`-DEXEC_MODEL=<name or path to .pte>`). Models in
 `executorch/mnist/models/`: `mnist_mlp_fp32`, `mnist_mlp_bf16`, `lenet_bf16_user` (provenance in `models/SOURCES.txt`).
 Re-export: `python executorch/mnist/scripts/gen_model.py --precision bf16 --pte executorch/mnist/models/mnist_mlp_bf16.pte`.
-Twister/`make suite` scenarios (`workload.executorch.*`, tag `executorch`) are build-only and need the variables above.
+Twister/`run_tests.py` scenarios (`workload.executorch.*`, tag `executorch`) are build-only and need the variables above.
 
 **In the maintainers' workspace** (`~/toolsC/bringup`) the verified build used:
 ```sh
@@ -202,7 +211,7 @@ export FLATC_EXECUTABLE=~/miniforge3/envs/zephyr/bin/flatc PYTHON_EXECUTABLE=~/m
   `executorch/<name>/`. Copy `executorch/mnist/`'s structure (CMakeLists, prj.conf, src/, scripts/, models/ with a
   `SOURCES.txt`) and keep it a separate app, with its dependencies opt-in.
 - **Memory:** the heap, the method pool and the planned-memory arena are set in `prj.conf` and `src/`. Everything must
-  fit in the board's DRAM node (256 MiB in the BSP devicetree today; a larger model needs a BSP change).
+  fit in the board's DRAM node (256 MiB in the board repo's devicetree today; a larger model needs a change there).
 - **Load time:** loading takes about `memsz*1.02/11520` s at 115200 baud; `.fast.elf` copies skip `.bss`.
 
 Expected output (fixed all-ones input; the values, not their meaning, are the check):
@@ -260,9 +269,9 @@ returns (fault in `set_chunk_used`); the runner passes an empty span instead. `C
   BSD-style licence of the ExecuTorch repo), as ported to RISC-V by Jonathan Lin in pandabon/zephyr-chipyard-sw, branch
   `exeggutorch` @ e12bfa38034 (`samples/exeggutorch/executor_runner`, `samples/exeggutorch/model/gen_pte.py`). Per-file
   credits are in the file headers; the models' provenance is in `executorch/mnist/models/SOURCES.txt`.
-* `basics/{hello_world,timer,mt_rvv}` are Dima Nikiforov's samples (hello_world, timer, test_mt_rvv) from
-  ucb-bar/zephyr-chipyard-sw, branch `dev` @ 838a4fed2be; `hello_world` and `mt_rvv` derive from Zephyr's
-  `samples/hello_world` (Wind River Systems, Apache-2.0). That repo has no LICENSE file (only the SPDX lines in the
+* `basics/hello_world` is Dima Nikiforov's hello_world sample from ucb-bar/zephyr-chipyard-sw, branch `dev` @
+  838a4fed2be, derived from Zephyr's `samples/hello_world` (Wind River Systems, Apache-2.0). (`timer` and `mt_rvv`, from
+  the same repo, moved to the board repo with their history and credits.) That repo has no LICENSE file (only the SPDX lines in the
   files): fine for a private repo, to be cleared before publication. Our changes (single hart, exit code, scenarios)
   are in the second commit of `basics/`.
 * History: `atlas/upstream` comes with its full git history from zephyr-chipyard-bsp `dev/main` 10fc321
