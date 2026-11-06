@@ -2,9 +2,8 @@
 
 Programs that run on the **Penguin** SoC (Shuttle RISC-V core + Saturn vector unit + Atlas accelerator): tests,
 benchmarks and workloads, as Zephyr applications. The board port itself (SoC, board, runner, test runner) and the samples that need nothing but the board live
-in the board repo, [zephyr-penguin](https://github.com/pandabon/zephyr-chipyard-bsp) (still at its old URL and
-folder name, `zephyr-chipyard-bsp`); this repo holds the workloads with heavier dependencies. The local folder is
-still called `penguin-workloads` until it is renamed.
+in the board repo, [zephyr-penguin](https://github.com/pandabon/zephyr-penguin); this repo holds the workloads with
+heavier dependencies.
 
 **Private** for now. Part of it is the Atlas team's code, which must be cleared with them before this repo is
 published (see Credits).

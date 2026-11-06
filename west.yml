@@ -10,12 +10,13 @@
 manifest:
   projects:
     - name: penguin               # the board repo's Zephyr module name (zephyr/module.yml)
-      url: git@github.com:pandabon/zephyr-chipyard-bsp.git   # renamed zephyr-penguin later; GitHub redirects
-      path: zephyr-chipyard-bsp   # the folder keeps its old name until the folder rename
-      # Pinned to the board repo's reorg branch dev/reorg (moved samples and tests, front ends
-      # removed, module renamed penguin). That commit is only local until the board repo is
-      # published: then replace this SHA with the pushed one.
-      revision: f2b3f0e6eb2ec8ac709545f7a26b1ec19bfb51dc
+      url: git@github.com:pandabon/zephyr-penguin.git
+      path: zephyr-penguin
+      # Pinned to the board repo after its reorg (moved samples and tests, front ends removed,
+      # module renamed penguin, repo renamed zephyr-penguin). This is a commit of the board repo's
+      # development line, which is not on GitHub (GitHub has only the public main): to build outside
+      # the maintainers' workspace, replace it with the matching public main commit.
+      revision: 67c68a99a2fec4986a32da2e43484258aed1579d
       import: true                # also fetches Zephyr at the SHA the board repo pins
 
     # Opt-in group `executorch` (PW-2): the sources executorch/mnist builds. Off by default, so a
