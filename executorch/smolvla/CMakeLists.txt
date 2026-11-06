@@ -515,5 +515,14 @@ set(FP8_MAX_NPAD 4096 CACHE STRING "EXEC_FP8_LINEAR: largest padded out_features
 if(EXEC_FP8_LINEAR)
   target_sources(app PRIVATE src/ops/linear_fp8_out.cpp)
   target_compile_definitions(app PRIVATE FP8_MAX_NPAD=${FP8_MAX_NPAD})
+  # The op's micro-kernel. No XNNPACK config references it, so XNNPACK lists it as non-production and leaves it out of
+  # xnnpack-microkernels-prod; compile the one generated file here, with that library's include paths.
+  set(_fp8_ukernel "${XNNPACK_DIR}/src/bf16-qf8w-gemm/gen/bf16-qf8w-f32-gemm-5x4v-minmax-rvvzvfofp8.c")
+  if(NOT EXISTS "${_fp8_ukernel}")
+    message(FATAL_ERROR "EXEC_FP8_LINEAR: ${_fp8_ukernel} not found; XNNPACK_DIR must be the fork with the rvvzvfofp8 kernels")
+  endif()
+  target_sources(app PRIVATE ${_fp8_ukernel})
+  set_source_files_properties(${_fp8_ukernel} PROPERTIES
+    INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:xnnpack-microkernels-prod,INCLUDE_DIRECTORIES>")
 endif()
 zephyr_linker_sources(DATA_SECTIONS custom-sections.ld)
