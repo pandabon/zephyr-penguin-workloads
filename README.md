@@ -185,7 +185,7 @@ the rest of the repo is unaffected. Nothing in the checkouts is modified.
 | What | Variable | Tested with |
 |---|---|---|
 | ExecuTorch checkout, directory **named `executorch`** | group `executorch`, or `EXECUTORCH_DIR` | pandabon/executorch branch `zephyr-1.0.1-bf16` @ `c19e05968e8d` (ExecuTorch 1.0.1 + bf16/RVV changes) |
-| XNNPACK checkout | group `executorch`, or `XNNPACK_DIR` (optional if `EXECUTORCH_DIR/backends/xnnpack/third-party/XNNPACK` works) | pandabon/XNNPACK branch `torch-1.0.0-bump-bf16` @ `c0d34218458` (RVV, Zvfbfmin, Zvfbfa kernels; not on the remote yet, see below) |
+| XNNPACK checkout | group `executorch`, or `XNNPACK_DIR` (optional if `EXECUTORCH_DIR/backends/xnnpack/third-party/XNNPACK` works) | pandabon/XNNPACK branch `torch-1.0.0-bump-bf16` @ `c0d34218458` (RVV, Zvfbfmin, Zvfbfa kernels) |
 | `flatc` and `python3` with `torchgen`, `pyyaml` | on `PATH`, or `FLATC_EXECUTABLE`, `PYTHON_EXECUTABLE` | an environment with flatc, torch 2.9.1, executorch 1.0.1 |
 | the board repo (zephyr-penguin) and its SDK environment | your west workspace | zephyr-chipyard-bsp `dev/main` 10fc321, SDK 1.0.0-beta1 |
 
@@ -262,9 +262,7 @@ XNNPACK micro-kernels (the "prod" set links all of them); trimming that is the w
 
 Notes: the runner's inputs come from a static pool, so the stock `BufferCleanup` would `free()` them when `main()`
 returns (fault in `set_chunk_used`); the runner passes an empty span instead. `CONFIG_SMP=y` with
-`MP_MAX_NUM_CPUS=1` and POSIX threads are ExecuTorch's threadpool requirements, not a second hart. XNNPACK
-`c0d34218458` was only in the author's local clone when this was written (not yet on the `pandabon/XNNPACK` remote,
-checked 2026-11-06), so the group's `west update` cannot fetch it until it is pushed.
+`MP_MAX_NUM_CPUS=1` and POSIX threads are ExecuTorch's threadpool requirements, not a second hart.
 
 ## Credits and licences
 
