@@ -35,6 +35,11 @@
 #                                         normal .pte). prng: only the .ptd header goes into the image; the weight bytes are a .noinit
 #                                         buffer the runner fills with a PRNG at boot (tame values, timing only: the output check is
 #                                         skipped), so the weights are not sent over the UART. EXEC_EXPECTED is ignored in prng mode.
+#           -DEXEC_WEIGHT_CACHE=ON        build ExecuTorch's XNNPACK weights cache (packing at load_method() goes through it)
+#           -DEXEC_PREPACK=ON|verify      with EXEC_PTD (embed) and EXEC_EMBED=incbin: pack the linears' weights on the BUILD machine
+#                                         (prepack/: host packer from XNNPACK_DIR's reference packers, target RVV vlenb 32), link the
+#                                         blob in and serve it through the weights cache, so load_method() does not pack them.
+#                                         verify: link the blob but pack on the board anyway and compare byte for byte (one-time check)
 #           -DEXEC_SELECT_OPS=OFF         link the whole portable kernel library. Default ON: link only the portable kernels the .pte
 #                                         uses, in any of its methods (ExecuTorch's selective build, EXECUTORCH_SELECT_OPS_MODEL=EXEC_MODEL):
 #                                         ~4.6 MB smaller image, i.e. ~7 min less UART load at 115200 baud. Turn it off only to run
@@ -243,6 +248,69 @@ if(EXEC_PTD)
 elseif(EXEC_PTD_MODE STREQUAL "prng")
   message(FATAL_ERROR "EXEC_PTD_MODE=prng needs EXEC_PTD")
 endif()
+
+# ---- weights cache and build-time prepacking (opt-in): EXEC_WEIGHT_CACHE, EXEC_PREPACK -----------------------------
+# EXEC_WEIGHT_CACHE=ON builds ExecuTorch's XNNPACK weights cache (EXECUTORCH_XNNPACK_ENABLE_WEIGHT_CACHE): XNNPACK still packs at
+# load_method(), into the heap, through the cache. EXEC_PREPACK=ON packs the linears on the BUILD machine instead: prepack/prepack.py
+# reads EXEC_MODEL + EXEC_PTD, prepack/xnn_prepack (built here with the host c++ from XNNPACK_DIR's reference packers) packs every
+# fully connected weight with the target's parameters (RISC-V RVV, vlenb 32), and the blob (XPWC v2, the cache's own file format) is
+# linked in with .incbin; the runner registers it before load_method() and XNNPACK reads it in place. EXEC_PREPACK=verify links the
+# same blob but makes the board pack anyway and compare byte for byte (one-time check of the host packer; "PREPACK VERIFY" lines).
+# Needs EXEC_PTD (embed) and EXEC_EMBED=incbin. Weights the blob does not cover are packed at load as before.
+option(EXEC_WEIGHT_CACHE "Build ExecuTorch's XNNPACK weights cache (packing at load goes through it)" OFF)
+set(EXEC_PREPACK "OFF" CACHE STRING "OFF, ON (link weights packed at build time) or verify (link them, pack on the board too, compare)")
+if(NOT EXEC_PREPACK STREQUAL "OFF")
+  if(NOT EXEC_PREPACK MATCHES "^(ON|verify)$")
+    message(FATAL_ERROR "EXEC_PREPACK must be OFF, ON or verify (got '${EXEC_PREPACK}')")
+  endif()
+  if(NOT EXEC_PTD OR NOT EXEC_PTD_MODE STREQUAL "embed" OR NOT EXEC_EMBED STREQUAL "incbin")
+    message(FATAL_ERROR "EXEC_PREPACK needs EXEC_PTD with EXEC_PTD_MODE=embed and EXEC_EMBED=incbin")
+  endif()
+  set(EXEC_WEIGHT_CACHE ON CACHE BOOL "" FORCE)
+  if(XNNPACK_DIR)
+    set(_pp_xnn "${XNNPACK_DIR}")
+  else()
+    set(_pp_xnn "${EXECUTORCH_DIR}/backends/xnnpack/third-party/XNNPACK")
+  endif()
+  set(_pp_src "${CMAKE_CURRENT_SOURCE_DIR}/prepack")
+  set(_pp_out "${CMAKE_CURRENT_BINARY_DIR}/prepack")
+  set(_pp_tp "${EXECUTORCH_DIR}/backends/xnnpack/third-party")
+  set(_pp_inc -I${_pp_xnn} -I${_pp_xnn}/include -I${_pp_tp}/pthreadpool/include -I${_pp_tp}/FP16/include -I${_pp_tp}/FXdiv/include)
+  find_program(_pp_cxx NAMES c++ g++ REQUIRED)   # the HOST compiler: the helper runs on the build machine
+  # xnn_prepack_support.cc is compiled as for RISC-V (x86 macros off, __riscv on) so XNNPACK's common.h gives the target's
+  # XNN_ALLOCATION_ALIGNMENT; see the header of that file.
+  add_custom_command(OUTPUT "${_pp_out}/xnn_prepack"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${_pp_out}"
+    COMMAND ${_pp_cxx} -std=c++17 -O2 -DXNN_LOG_LEVEL=0 -U__x86_64__ -U__amd64__ -U__x86_64 -U__amd64 -D__riscv=1 -c ${_pp_inc}
+            "${_pp_src}/xnn_prepack_support.cc" -o "${_pp_out}/xnn_prepack_support.o"
+    COMMAND ${_pp_cxx} -std=c++17 -O2 -DXNN_LOG_LEVEL=0 ${_pp_inc} "${_pp_src}/xnn_prepack.cc" "${_pp_xnn}/src/reference/packing.cc"
+            "${_pp_out}/xnn_prepack_support.o" -o "${_pp_out}/xnn_prepack"
+    DEPENDS "${_pp_src}/xnn_prepack.cc" "${_pp_src}/xnn_prepack_support.cc" "${_pp_xnn}/src/reference/packing.cc"
+    COMMENT "prepack: building the host packer xnn_prepack" VERBATIM)
+  set(_pp_flatc "")
+  if(FLATC_EXECUTABLE)
+    set(_pp_flatc --flatc "${FLATC_EXECUTABLE}")
+  endif()
+  add_custom_command(OUTPUT "${_pp_out}/prepacked.xpwc" "${_pp_out}/prepacked.json"
+    COMMAND "${PYTHON_EXECUTABLE}" "${_pp_src}/prepack.py" --pte "${_pte}" --ptd "${EXEC_PTD}" --xnnpack-dir "${_pp_xnn}"
+            --helper "${_pp_out}/xnn_prepack" ${_pp_flatc} --out "${_pp_out}/prepacked.xpwc" --json "${_pp_out}/prepacked.json"
+    DEPENDS "${_pp_out}/xnn_prepack" "${_pp_src}/prepack.py" "${_pte}" "${EXEC_PTD}"
+    COMMENT "prepack: packing the XNNPACK weights for the target on the build machine" VERBATIM)
+  add_custom_target(prepacked_blob DEPENDS "${_pp_out}/prepacked.xpwc")
+  # 64-byte aligned: the cache wants every packed entry 64-byte aligned in memory (the blob's offsets are multiples of 64).
+  _embed_bin("${_pp_out}/prepacked.xpwc" prepacked_blob network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/prepacked_blob" 0 64)
+  set_source_files_properties("${_embed_out}" PROPERTIES GENERATED_DEPENDS TRUE)
+  list(APPEND _embedded ${_embed_out})
+  if(EXEC_PREPACK STREQUAL "verify")
+    add_compile_definitions(EXEC_PREPACK=1 EXEC_PREPACK_VERIFY=1)
+  else()
+    add_compile_definitions(EXEC_PREPACK=1 EXEC_PREPACK_VERIFY=0)
+  endif()
+  message(STATUS "prepacked weights: built from ${_pte} + ${EXEC_PTD}, mode ${EXEC_PREPACK}")
+endif()
+if(EXEC_WEIGHT_CACHE)
+  add_compile_definitions(EXEC_WEIGHT_CACHE=1)
+endif()
 if(EXEC_STEP_DATA)
   if(NOT EXISTS "${EXEC_STEP_DATA}" OR NOT EXISTS "${EXEC_STEP_EXPECTED}")
     message(FATAL_ERROR "step mode needs existing EXEC_STEP_DATA and EXEC_STEP_EXPECTED")
@@ -450,6 +518,7 @@ if(EXEC_SELECT_OPS)
   set(EXECUTORCH_SELECT_OPS_MODEL "${_pte}" CACHE STRING "" FORCE)
 endif()
 
+set(EXECUTORCH_XNNPACK_ENABLE_WEIGHT_CACHE ${EXEC_WEIGHT_CACHE} CACHE BOOL "" FORCE)   # EXEC_WEIGHT_CACHE / EXEC_PREPACK above
 add_subdirectory(${ET_DIR_PATH} ${ET_BUILD_DIR_PATH})
 
 # The Zephyr headers we added to every target include generated ones (zephyr/syscall_list.h,
@@ -507,6 +576,9 @@ endif()
 target_include_directories(app PRIVATE ${ET_DIR_PATH}/backends/xnnpack/third-party/XNNPACK)
 target_include_directories(app PRIVATE ${ET_INCLUDE_PATH} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_sources(app PRIVATE src/riscv_executor_runner.cpp ${_embedded})
+if(NOT EXEC_PREPACK STREQUAL "OFF")
+  add_dependencies(app prepacked_blob)
+endif()
 # ExecuTorch custom op for fp8 weight-only linears, compiled into the app itself: its static registration object (EXECUTORCH_LIBRARY) is
 # then always linked, which a static library would drop. The registry size (MAX_KERNEL_NUM) is generated from the ops of EXEC_MODEL, which
 # lists penguin::linear_fp8.out, so the op has a slot.

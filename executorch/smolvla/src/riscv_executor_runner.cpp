@@ -58,6 +58,9 @@
 #include <executorch/extension/flat_tensor/flat_tensor_data_map.h>
 #include <executorch/runtime/core/named_data_map.h>
 #endif
+#if defined(EXEC_PREPACK) || defined(EXEC_WEIGHT_CACHE)
+#include <executorch/backends/xnnpack/runtime/XNNPACKBackend.h> /* set_prepacked_weights(), get_packed_cache_report() */
+#endif
 #include <executorch/runtime/core/memory_allocator.h>
 #include <executorch/runtime/executor/program.h>
 #include <executorch/runtime/platform/log.h>
@@ -190,6 +193,26 @@ static inline uint64_t read_mcycle()
 	uint64_t v;
 	__asm__ volatile("csrr %0, mcycle" : "=r"(v));
 	return v;
+}
+
+#ifdef EXEC_PREPACK
+/* The prepacked weights blob (XPWC v2, the format of XNNWeightsCache::save_packed_index in forks/executorch), linked in by CMake (.incbin). */
+extern "C" const unsigned char prepacked_blob[];
+extern "C" const unsigned int prepacked_blob_size;
+#endif
+
+/* What XNNPACK's weights cache holds after loading (only with EXEC_WEIGHT_CACHE): bytes it packed into the heap vs bytes it serves from
+ * the prepacked blob in place. */
+static void print_weight_cache_report()
+{
+#ifdef EXEC_WEIGHT_CACHE
+	executorch::backends::xnnpack::PackedCacheReport r = executorch::backends::xnnpack::get_packed_cache_report();
+	int64_t heap = 0;
+	for (int64_t b : r.aggregate.heap_bytes_by_reason)
+		heap += b; /* every reason, including "not opted in" (no file path), which is how heap packing is filed here */
+	printf("weights cache: packed in heap %lld bytes, served from the prepacked blob %lld bytes, state %d\n", (long long)heap,
+		   (long long)r.aggregate.mapped_bytes, (int)r.aggregate.state);
+#endif
 }
 
 /* The event tracer every load_method() of the step and chain modes gets (one ETDumpGen, so one dump holds all methods and runs).
@@ -595,19 +618,23 @@ bool load_named(Program &program, const char *name, MemoryAllocator &method_allo
 	}
 	out.planned = std::make_unique<HierarchicalAllocator>(Span<Span<uint8_t>>(out.spans.data(), out.spans.size()));
 	out.manager = std::make_unique<MemoryManager>(&method_alloc, out.planned.get(), &temp_alloc);
+	/* load_method() cost (XNNPACK packs the weights here unless they come prepacked, EXEC_PREPACK), printed with the line below. */
+	uint64_t load_i0 = read_minstret(), load_c0 = read_mcycle();
 #ifdef EXEC_HAVE_PTD
 	Result<Method> m = program.load_method(name, out.manager.get(), g_event_tracer, g_named_data_map);
 #else
 	Result<Method> m = program.load_method(name, out.manager.get(), g_event_tracer);
 #endif
+	uint64_t load_i = read_minstret() - load_i0, load_c = read_mcycle() - load_c0;
 	if (!m.ok())
 	{
 		printf("FAIL: load_method(%s) = 0x%x\n", name, (unsigned)m.error());
 		return false;
 	}
 	out.method = std::make_unique<Method>(std::move(m.get()));
-	printf("loaded method %s: %zu inputs, %zu outputs, planned memory %zu bytes\n", name, out.method->inputs_size(),
-		   out.method->outputs_size(), out.planned_bytes);
+	printf("loaded method %s: %zu inputs, %zu outputs, planned memory %zu bytes, load minstret delta = %" PRIu64
+		   ", mcycle delta = %" PRIu64 "\n",
+		   name, out.method->inputs_size(), out.method->outputs_size(), out.planned_bytes, load_i, load_c);
 	return true;
 }
 
@@ -854,6 +881,7 @@ static int run_chain_mode(Program &program)
 		return 1;
 	printf("method pool used after loading the four methods: %zu of %zu bytes\n", method_alloc.used_size(),
 		   method_allocation_pool_size);
+	print_weight_cache_report();
 	Method &V = *vis.method, &L = *vlm.method, &K = *kvp.method, &D = *dn.method;
 	if (V.inputs_size() != 1 || V.outputs_size() != 1 || L.inputs_size() != 6 || L.outputs_size() != 2 * layers ||
 		K.inputs_size() != 2 * n_cross || K.outputs_size() != 2 * n_cross || D.inputs_size() != kFirstKv + 2 * layers ||
@@ -1047,6 +1075,14 @@ int main()
 		chipyard_sim_exit(1);
 	}
 	g_named_data_map = &*ptd_map;
+#endif
+#ifdef EXEC_PREPACK
+	/* Weights packed on the build machine (executorch/smolvla/prepack, EXEC_PREPACK): hand the linked blob to XNNPACK's weights cache before
+	 * any load_method(), so the cache finds every packed linear by name and XNNPACK reads it in place instead of packing it. Verify mode
+	 * (EXEC_PREPACK=verify, a one-time check) packs on the board anyway and compares each result with the blob byte for byte. */
+	printf("prepacked weights: %u bytes at %p%s\n", prepacked_blob_size, (const void *)prepacked_blob,
+		   EXEC_PREPACK_VERIFY ? " (verify mode: pack on the board and compare)" : "");
+	executorch::backends::xnnpack::set_prepacked_weights(prepacked_blob, prepacked_blob_size, EXEC_PREPACK_VERIFY != 0);
 #endif
 #if defined(EXEC_ETDUMP) && (defined(EXEC_STEP_MODE) || defined(EXEC_CHAIN_MODE))
 	/* One ETDumpGen for every load_method() of the mode (load_named()), so one dump holds all methods and runs. The dump is printed after
