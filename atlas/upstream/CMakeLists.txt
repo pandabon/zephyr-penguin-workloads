@@ -13,8 +13,9 @@
 #   west build -b chipyard_penguin/penguin atlas/upstream -- \
 #       -DATLAS_TEST=saturn_atlas_pause_resume
 #
-# Why not the BSP's plain_app core (cmake/plain_app/)? That core compiles every .c in
-# a directory it is pointed at; the upstream tests/ directory holds ~45 files
+# Why not the plain_app core (cmake/plain_app/, in the board repo zephyr-penguin until it was
+# removed by BSP-4 (one way to build an app); last at zephyr-chipyard-bsp 93ace03)? That core compiled every .c in
+# a directory it was pointed at; the upstream tests/ directory holds ~45 files
 # with their own main() each, so we need to pick exactly one file. We do reuse
 # its idea (link with --wrap=main so that a returning main() ends the run with
 # its value as exit code) in shim/atlas_upstream_shim.c.

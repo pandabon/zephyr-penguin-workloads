@@ -23,7 +23,7 @@ prebuilt x86 binary vec-fp8/gen_data.
 Files of ours (not from Saturn), all in shim/, conf/, CMakeLists.txt, prj.conf, testcase.yaml:
   shim/stats_shim.c   re-implements setStats() from saturn-vectors benchmarks/common/syscalls.c
                       @ de04946 (original authors of that file: dpgrubb13)
-  shim/exit_shim.c    same code as cmake/plain_app/exit_shim.c of our BSP (zephyr-chipyard-bsp)
+  shim/exit_shim.c    same code as cmake/plain_app/exit_shim.c of our board repo (zephyr-chipyard-bsp @93ace03, now zephyr-penguin)
   shim/include/driver/rocket-chip/l_trace_encoder/l_trace_encoder.h
                       no-op stub of a driver header that Saturn's sources include but that lives
                       outside saturn-vectors (baremetal-ide); only the declarations the benchmarks use.

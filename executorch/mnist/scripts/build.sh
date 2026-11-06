@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
 # Build the ExecuTorch runner for one board and one model (a thin wrapper around `west build`;
-# it prints the real command). Run inside an activated BSP environment (west, SDK on PATH).
+# it prints the real command). Run inside an activated zephyr-penguin workspace (west, SDK on PATH).
 #
 #   EXECUTORCH_DIR=... XNNPACK_DIR=... scripts/build.sh [board] [model] [build-dir]
 #   scripts/build.sh chipyard_penguin/penguin mnist_mlp_fp32 build/exec_fp32_chip

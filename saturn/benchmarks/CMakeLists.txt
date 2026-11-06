@@ -7,13 +7,14 @@
 #
 # The benchmark sources under third_party/saturn-vectors/benchmarks/ are unmodified copies of Saturn's
 # (see CREDITS.txt / NOTICE); everything of ours is in shim/, conf/ and this file.
-# Same pattern as the BSP's external/atlas_upstream (ATLAS_TEST).
+# Same pattern as atlas/upstream (ATLAS_TEST).
 #
 # What differs from Saturn's own bare-metal flow (the reason shim/ exists):
 #   * startup/exit: Saturn links its own crt.S + HTIF syscalls; Zephyr boots its
 #     own kernel and calls main() from a thread. shim/exit_shim.c wraps main()
 #     (linker --wrap=main) so a returning main() ends the run with its value as
-#     exit code (0 = pass), like the BSP's cmake/plain_app.
+#     exit code (0 = pass), like the board repo's former cmake/plain_app
+#     (zephyr-chipyard-bsp 93ace03; removed by BSP-4).
 #   * setStats(): Saturn's common/syscalls.c records mcycle/minstret; shim/stats_shim.c
 #     does the same and prints "stats: mcycle=<n> minstret=<n>".
 #   * l_trace_encoder.h (a trace-encoder driver outside Saturn's repo): no-op stub.

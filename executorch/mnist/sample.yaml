@@ -4,7 +4,7 @@
 # so the tests carry the tag `executorch`: leave them out of a normal run with
 #   twister -e executorch ...
 # and select them with `--tag executorch` after exporting the variables (see the ExecuTorch section of the repo README.md).
-# For the BSP's run_tests.py (--root), each test also carries `skip: true` so a normal suite run reports
+# For the board repo's (zephyr-penguin) scripts/run_tests.py (--root), each test also carries `skip: true` so a normal suite run reports
 # them as SKIP instead of failing at configure; build them directly (README) once the variables are set.
 # They are build-only; the Spike run is `west build -t run` (expected output in the repo README.md).
 sample:
