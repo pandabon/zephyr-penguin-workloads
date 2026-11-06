@@ -8,7 +8,7 @@
 # Derived from executorch/mnist/scripts/build.sh in this repo; the model is now a .pte path.
 # Optional environment, passed on as CMake options: EXEC_INPUTS, EXEC_EXPECTED, EXEC_TOL, EXEC_EMBED (hex|incbin),
 # EXEC_STEP_DATA, EXEC_STEP_EXPECTED (step mode), EXEC_CHAIN_DATA, EXEC_CHAIN_EXPECTED (chain mode; see CMakeLists.txt),
-# ET_METHOD_POOL_SIZE, ET_TEMP_POOL_SIZE, EXTRA_CMAKE (more words, e.g. "-DXNNPACK_ENABLE_RISCV_VECTOR=OFF").
+# EXEC_FP8_LINEAR (ON for an fp8 .pte), FP8_MAX_NPAD, ET_METHOD_POOL_SIZE, ET_TEMP_POOL_SIZE, EXTRA_CMAKE (more words, e.g. "-DXNNPACK_ENABLE_RISCV_VECTOR=OFF").
 #
 # (Python3_EXECUTABLE is deliberately not set: Zephyr must keep using the west python.)
 # Optional: PYTHON_EXECUTABLE / FLATC_EXECUTABLE (default: python3 and flatc on PATH), JOBS.
@@ -23,7 +23,7 @@ extra=()
 [ -n "${PYTHON_EXECUTABLE:-}" ] && extra+=("-DPYTHON_EXECUTABLE=$PYTHON_EXECUTABLE")
 [ -n "${FLATC_EXECUTABLE:-}" ] && extra+=("-DFLATC_EXECUTABLE=$FLATC_EXECUTABLE")
 [ -n "${XNNPACK_DIR:-}" ] && extra+=("-DXNNPACK_DIR=$XNNPACK_DIR")
-for v in EXEC_INPUTS EXEC_EXPECTED EXEC_EMBED EXEC_STEP_DATA EXEC_STEP_EXPECTED EXEC_CHAIN_DATA EXEC_CHAIN_EXPECTED EXEC_TOL ET_METHOD_POOL_SIZE ET_TEMP_POOL_SIZE; do
+for v in EXEC_INPUTS EXEC_EXPECTED EXEC_EMBED EXEC_STEP_DATA EXEC_STEP_EXPECTED EXEC_CHAIN_DATA EXEC_CHAIN_EXPECTED EXEC_TOL EXEC_FP8_LINEAR FP8_MAX_NPAD ET_METHOD_POOL_SIZE ET_TEMP_POOL_SIZE; do
   [ -n "${!v:-}" ] && extra+=("-D$v=${!v}")
 done
 # shellcheck disable=SC2206

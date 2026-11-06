@@ -39,6 +39,10 @@
 #                                         uses, in any of its methods (ExecuTorch's selective build, EXECUTORCH_SELECT_OPS_MODEL=EXEC_MODEL):
 #                                         ~4.6 MB smaller image, i.e. ~7 min less UART load at 115200 baud. Turn it off only to run
 #                                         a .pte that was not the one built in (the runner fails with a missing-kernel error otherwise)
+#           -DEXEC_FP8_LINEAR=ON          build the ExecuTorch custom op penguin::linear_fp8.out (src/ops/linear_fp8_out.cpp) for a .pte exported with
+#                                         fp8 weights (smolvla-explore/export_mini_chain_fp8.py). It calls the XNNPACK fork's
+#                                         xnn_bf16_qf8w_f32_gemm_minmax_ukernel_5x4v__rvvzvfofp8, so the fork must have that kernel. Default OFF.
+#                                         -DFP8_MAX_NPAD=n: largest padded out_features the op's static scratch holds (default 4096)
 #           -DEXEC_REPEAT=N, -DEXEC_PC_SAMPLE=us, -DEXEC_XNN_PROFILE=ON   see "opt-in instrumentation" below
 #           -DEXEC_ERR_STATS=ON           one ERRSTATS line per checked output: abs/rel error mean, min, max, RMSE, PSNR vs the reference
 #           -DEXEC_ETDUMP=ON [-DEXEC_ETDUMP_BUF=bytes] [-DEXEC_CPU_HZ=hz]
@@ -503,4 +507,13 @@ endif()
 target_include_directories(app PRIVATE ${ET_DIR_PATH}/backends/xnnpack/third-party/XNNPACK)
 target_include_directories(app PRIVATE ${ET_INCLUDE_PATH} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_sources(app PRIVATE src/riscv_executor_runner.cpp ${_embedded})
+# ExecuTorch custom op for fp8 weight-only linears, compiled into the app itself: its static registration object (EXECUTORCH_LIBRARY) is
+# then always linked, which a static library would drop. The registry size (MAX_KERNEL_NUM) is generated from the ops of EXEC_MODEL, which
+# lists penguin::linear_fp8.out, so the op has a slot.
+option(EXEC_FP8_LINEAR "Build the ExecuTorch custom op penguin::linear_fp8.out (needs the XNNPACK fork's rvvzvfofp8 gemm kernel)" OFF)
+set(FP8_MAX_NPAD 4096 CACHE STRING "EXEC_FP8_LINEAR: largest padded out_features (multiple of 32) the op's static f32 scratch (5 rows) can hold")
+if(EXEC_FP8_LINEAR)
+  target_sources(app PRIVATE src/ops/linear_fp8_out.cpp)
+  target_compile_definitions(app PRIVATE FP8_MAX_NPAD=${FP8_MAX_NPAD})
+endif()
 zephyr_linker_sources(DATA_SECTIONS custom-sections.ld)
