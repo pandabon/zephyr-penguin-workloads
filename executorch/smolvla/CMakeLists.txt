@@ -230,7 +230,12 @@ if(EXEC_PTD)
   endif()
   if(EXEC_PTD_MODE STREQUAL "embed")
     # 128-byte aligned like the segments inside the .ptd (serialize.py aligns them to >= 128)
-    _embed_bin("${EXEC_PTD}" ptd_embedded network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/ptd_embedded" 0 128)
+    # EXEC_PREPACK=ON embeds the .ptd without the weights the prepacked blob replaces (made below by prepack.py).
+    set(_ptd_embed_file "${EXEC_PTD}")
+    if(EXEC_PREPACK STREQUAL "ON")
+      set(_ptd_embed_file "${CMAKE_CURRENT_BINARY_DIR}/prepack/stripped.ptd")
+    endif()
+    _embed_bin("${_ptd_embed_file}" ptd_embedded network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/ptd_embedded" 0 128)
     add_compile_definitions(EXEC_PTD_EMBED=1)
   elseif(EXEC_PTD_MODE STREQUAL "prng")
     _embed_bin("${EXEC_PTD}" ptd_header network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/ptd_header" ${_ptd_base})
@@ -257,6 +262,10 @@ endif()
 # linked in with .incbin; the runner registers it before load_method() and XNNPACK reads it in place. EXEC_PREPACK=verify links the
 # same blob but makes the board pack anyway and compare byte for byte (one-time check of the host packer; "PREPACK VERIFY" lines).
 # Needs EXEC_PTD (embed) and EXEC_EMBED=incbin. Weights the blob does not cover are packed at load as before.
+# One copy of each weight in the image: with EXEC_PREPACK=ON the embedded .ptd is NOT EXEC_PTD but prepack/stripped.ptd, a copy
+# without the raw weights the blob replaces (prepack.py --strip-ptd-out; keys also used by anything the blob does not cover stay).
+# The runtime hands XNNPACK a placeholder address for each stripped key and aborts if a lookup would ever pack from one.
+# EXEC_PREPACK=verify embeds the whole EXEC_PTD, because it packs on the board to compare.
 option(EXEC_WEIGHT_CACHE "Build ExecuTorch's XNNPACK weights cache (packing at load goes through it)" OFF)
 set(EXEC_PREPACK "OFF" CACHE STRING "OFF, ON (link weights packed at build time) or verify (link them, pack on the board too, compare)")
 if(NOT EXEC_PREPACK STREQUAL "OFF")
@@ -291,12 +300,18 @@ if(NOT EXEC_PREPACK STREQUAL "OFF")
   if(FLATC_EXECUTABLE)
     set(_pp_flatc --flatc "${FLATC_EXECUTABLE}")
   endif()
-  add_custom_command(OUTPUT "${_pp_out}/prepacked.xpwc" "${_pp_out}/prepacked.json"
+  set(_pp_strip "")
+  set(_pp_outputs "${_pp_out}/prepacked.xpwc" "${_pp_out}/prepacked.json")
+  if(EXEC_PREPACK STREQUAL "ON")
+    set(_pp_strip --strip-ptd-out "${_pp_out}/stripped.ptd")
+    list(APPEND _pp_outputs "${_pp_out}/stripped.ptd")
+  endif()
+  add_custom_command(OUTPUT ${_pp_outputs}
     COMMAND "${PYTHON_EXECUTABLE}" "${_pp_src}/prepack.py" --pte "${_pte}" --ptd "${EXEC_PTD}" --xnnpack-dir "${_pp_xnn}"
-            --helper "${_pp_out}/xnn_prepack" ${_pp_flatc} --out "${_pp_out}/prepacked.xpwc" --json "${_pp_out}/prepacked.json"
+            --helper "${_pp_out}/xnn_prepack" ${_pp_flatc} --out "${_pp_out}/prepacked.xpwc" --json "${_pp_out}/prepacked.json" ${_pp_strip}
     DEPENDS "${_pp_out}/xnn_prepack" "${_pp_src}/prepack.py" "${_pte}" "${EXEC_PTD}"
     COMMENT "prepack: packing the XNNPACK weights for the target on the build machine" VERBATIM)
-  add_custom_target(prepacked_blob DEPENDS "${_pp_out}/prepacked.xpwc")
+  add_custom_target(prepacked_blob DEPENDS ${_pp_outputs})
   # 64-byte aligned: the cache wants every packed entry 64-byte aligned in memory (the blob's offsets are multiples of 64).
   _embed_bin("${_pp_out}/prepacked.xpwc" prepacked_blob network_model_sec "${CMAKE_CURRENT_BINARY_DIR}/prepacked_blob" 0 64)
   set_source_files_properties("${_embed_out}" PROPERTIES GENERATED_DEPENDS TRUE)

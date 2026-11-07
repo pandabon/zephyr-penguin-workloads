@@ -37,6 +37,9 @@ Run
   # use the ExecuTorch Python environment (it imports executorch.exir) and put
   # flatc on PATH or pass --flatc. Without --ptd the constants are taken from
   # the .pte's own named data (older exports).
+  # --strip-ptd-out stripped.ptd  also writes the .ptd without the raw weights the
+  # blob replaces (keys used only as weight/bias of covered linears); the sidecar
+  # JSON lists them under "stripped_ptd".
 
 Target parameters (defaults are the Penguin board)
 --------------------------------------------------
@@ -325,7 +328,112 @@ def scan_method(method, graph, cd_bytes, jobs, uncovered, fc_issues):
             has_bias=has_bias, bkey=b_key if bias_named else None,
             binline=(b_key if (has_bias and b_kind == "inline") else None),
             bsize=b_size if has_bias else 0, cdata=cd_bytes,
-            filter_dtype=dt(f_tv), input_dtype=dt(in_tv), output_dtype=dt(o_tv)))
+            filter_dtype=dt(f_tv), input_dtype=dt(in_tv), output_dtype=dt(o_tv),
+            # where this job reads its constants, for --strip-ptd-out (graph object + (node, field) slots)
+            graph=graph, slots=[(ni, "filter_id")] + ([(ni, "bias_id")] if bias_named else [])))
+
+
+# ---------------------------------------------------------------------------
+# Dropping the raw weights the blob replaces from the .ptd (--strip-ptd-out)
+# ---------------------------------------------------------------------------
+
+def _value_ids(obj):
+    """All value ids a node (or graph) refers to: every field named *_id or *_ids."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k.endswith("_id") and isinstance(v, int):
+                yield k, v
+            elif k.endswith("_ids") and isinstance(v, list):
+                for i in v:
+                    yield k, i
+            elif isinstance(v, (dict, list)):
+                yield from _value_ids(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _value_ids(v)
+
+
+def strippable_keys(graphs, jobs):
+    """Named constants whose EVERY use (all graphs, all methods) is the weight or the named
+    bias of a covered fully-connected node. Any other use (a convolution, a batch matmul,
+    another op, a graph input or output) keeps the key. Returns the set of keys."""
+    covered = defaultdict(set)  # id(graph) -> {(node_index, field)}
+    for j in jobs:
+        covered[id(j["graph"])].update(j["slots"])
+    uses, cov_uses = defaultdict(int), defaultdict(int)
+    for graph in graphs:
+        def note(vid, slot):
+            if vid == INVALID_ID or vid >= len(graph["xvalues"]):
+                return
+            tv, _ = tensor_of(graph, vid)
+            kind, key, _ = const_info(graph, tv)
+            if kind == "named":
+                uses[key] += 1
+                if slot in covered[id(graph)]:
+                    cov_uses[key] += 1
+        for ni, node in enumerate(graph["xnodes"]):
+            for field, vid in _value_ids(node["xnode_union"]):
+                note(vid, (ni, field))
+        for field, vid in _value_ids({"input_ids": graph.get("input_ids") or [],
+                                      "output_ids": graph.get("output_ids") or []}):
+            note(vid, None)
+    return {k for k, c in cov_uses.items() if c > 0 and uses[k] == c}
+
+
+def strip_ptd(src_path, dst_path, strip):
+    """Write src_path without the keys in `strip`, with ExecuTorch's own FlatTensor
+    serializer, then read both back and check every kept key. Returns a summary dict."""
+    from math import gcd
+    from executorch.exir._serialize._cord import Cord
+    from executorch.exir._serialize.data_serializer import DataEntry, DataPayload
+    from executorch.extension.flat_tensor.serialize.serialize import (
+        FlatTensorConfig, FlatTensorHeader, FlatTensorSerializer, _deserialize_to_flat_tensor)
+
+    with open(src_path, "rb") as f:
+        raw = f.read()
+    hdr = FlatTensorHeader.from_bytes(raw[8:])
+    flat = _deserialize_to_flat_tensor(raw[:hdr.flatbuffer_offset + hdr.flatbuffer_size])
+    # The reader drops alignment (every entry comes back with 1), so recover the writer's
+    # segment_alignment: the segments are placed at multiples of it, and so is the base.
+    g = hdr.segment_base_offset
+    for seg in flat.segments:
+        g = gcd(g, seg.offset)
+    align = g & -g if g else 128
+    ser = FlatTensorSerializer(FlatTensorConfig(segment_alignment=align))
+    old = ser.deserialize(Cord(raw))
+    missing = [k for k in strip if k not in old.named_data]
+    if missing:
+        die("--strip-ptd-out: %d keys to strip are not in %s" % (len(missing), src_path))
+    kept = {k: e for k, e in old.named_data.items() if k not in strip}
+    used = sorted({e.buffer_index for e in kept.values()})
+    new_index = {b: i for i, b in enumerate(used)}
+    new = DataPayload(
+        buffers=[old.buffers[b] for b in used],
+        named_data={k: DataEntry(buffer_index=new_index[e.buffer_index], alignment=1,
+                                 tensor_layout=e.tensor_layout) for k, e in kept.items()})
+    blob = ser.serialize(new)
+    with open(dst_path, "wb") as f:
+        f.write(bytes(blob))
+    del blob
+
+    # check: read the new file back with the same deserializer
+    with open(dst_path, "rb") as f:
+        back = ser.deserialize(Cord(f.read()))
+    if set(back.named_data) != set(kept):
+        die("stripped .ptd: key set differs from the expected kept set")
+    for k, e in kept.items():
+        b = back.named_data[k]
+        if bytes(back.buffers[b.buffer_index]) != bytes(old.buffers[e.buffer_index]):
+            die("stripped .ptd: bytes of kept key %s differ from the original" % k)
+        if b.tensor_layout != e.tensor_layout:
+            die("stripped .ptd: tensor layout of kept key %s differs from the original" % k)
+    kept_bytes = sum(len(old.buffers[b]) for b in used)
+    all_bytes = sum(len(b) for b in old.buffers)
+    return dict(path=os.path.abspath(dst_path), segment_alignment=align,
+                keys_total=len(old.named_data), keys_kept=len(kept), keys_stripped=len(strip),
+                bytes_kept=kept_bytes, bytes_stripped=all_bytes - kept_bytes,
+                file_bytes_before=len(raw), file_bytes_after=os.path.getsize(dst_path),
+                stripped_keys=sorted(strip), kept_keys_checked=len(kept))
 
 
 # ---------------------------------------------------------------------------
@@ -457,9 +565,14 @@ def main():
     ap.add_argument("--zvfbfa", type=int, default=1, choices=(0, 1), help="Zvfbfa kernels on (recorded only; no effect on packing)")
     ap.add_argument("--flatc", default=None, help="flatc binary (default: PATH, then the executorch package)")
     ap.add_argument("--schema", default=None, help="runtime_schema.fbs (default: from the executorch package)")
+    ap.add_argument("--strip-ptd-out", default=None, metavar="PATH",
+                    help="also write a copy of --ptd without the keys that only the covered linears use "
+                         "(the blob replaces them); the board then holds one copy of each weight")
     ap.add_argument("--check", default="all", help="self-check: 'all', a number, or 0 to skip (default all)")
     ap.add_argument("--keep-work", action="store_true", help="keep the scratch directory")
     args = ap.parse_args()
+    if args.strip_ptd_out and not args.ptd:
+        die("--strip-ptd-out needs --ptd")
 
     flatc = args.flatc or find_default_flatc() or die("flatc not found; pass --flatc")
     schema = args.schema or find_default_schema() or die("runtime_schema.fbs not found; pass --schema")
@@ -631,6 +744,12 @@ def main():
             cnt = None if args.check == "all" else int(args.check)
             check = selfcheck(np, args.out, entries, sources_fn, cnt)
 
+        # --- stripped .ptd ---
+        stripped = None
+        if args.strip_ptd_out:
+            graphs = [g for gl in methods.values() for g, _ in gl]
+            stripped = strip_ptd(args.ptd, args.strip_ptd_out, strippable_keys(graphs, all_jobs))
+
         # --- sidecar JSON ---
         per_method = OrderedDict()
         for m in methods:
@@ -655,6 +774,7 @@ def main():
             uncovered_static_weight_nodes=uncovered,
             fc_not_cacheable_by_name=fc_issues,
             warnings=warnings,
+            stripped_ptd=stripped,
             selfcheck=check,
             note_partial_nr_block=("In a partial last nr block the packer skips the padding (it does not write it). "
                                    "This blob has zeros there; on the board those bytes are whatever the allocator "
@@ -670,6 +790,10 @@ def main():
             print("  %-13s %s" % (m, dict(v)))
         print("uncovered static-weight nodes: %d; FCs not cacheable by name: %d; warnings: %d"
               % (len(uncovered), len(fc_issues), len(warnings)))
+        if stripped:
+            print("stripped .ptd: %d of %d keys dropped, %d bytes stripped, %d kept (%d -> %d file bytes); %d kept keys re-read identical (%s)"
+                  % (stripped["keys_stripped"], stripped["keys_total"], stripped["bytes_stripped"], stripped["bytes_kept"],
+                     stripped["file_bytes_before"], stripped["file_bytes_after"], stripped["kept_keys_checked"], args.strip_ptd_out))
         if check is not None:
             bad = [c for c in check if not (c["weights_equal"] and c["bias_equal"] and c["tail_padding_zero"])]
             print("self-check: %d entries read back, %d mismatches" % (len(check), len(bad)))
