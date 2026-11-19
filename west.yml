@@ -13,9 +13,10 @@ manifest:
       url: https://github.com/pandabon/zephyr-penguin
       path: zephyr-penguin
       # The board repo's public main (GitHub has only that branch), so a fresh workspace can fetch
-      # it. Its code matches the development commit these apps were last built against (23a92c4);
-      # the two differ only in comments and README wording.
-      revision: 2dcab0911cc1e1b905670d74ebd9003f3ffb134d
+      # it. This one adds the on-chip memories (scratchpad, VMEM) to the devicetree and Spike. Its
+      # code matches the board repo's development commit ffdae49; the two differ only in comments
+      # and README wording.
+      revision: e47fdceca142e3bda2b68ff5b0b35c25ceaaf1d1
       import: true                # also fetches Zephyr at the SHA the board repo pins
 
     # Opt-in group `executorch`: the sources executorch/mnist builds. Off by default, so a
