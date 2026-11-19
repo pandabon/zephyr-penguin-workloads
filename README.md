@@ -218,6 +218,24 @@ default, Zephyr optional) do not use the west pins above. They take `EXECUTORCH_
 pandabon/executorch branch `penguin-1.6` @ `ec44b35d62` and pandabon/XNNPACK branch `penguin` @ `7264d39dab`.
 `executorch/mnist` keeps the older pins.
 
+**SmolVLA expert layer 1 (demo files).** `executorch/smolvla/scripts/export_expert_layer.py` writes the `.pte` plus the
+golden input and expected-output files for one layer of SmolVLA's action expert. Needs Python with `torch`, `safetensors`
+and the `executorch` package (the `penguin-1.6` fork above, built from source) and the `lerobot/smolvla_base` checkpoint
+(Apache-2.0; `huggingface-cli download lerobot/smolvla_base`, the script finds it in `~/.cache/huggingface`, or pass `--ckpt`):
+```sh
+python executorch/smolvla/scripts/export_expert_layer.py --layer 1 --prefix-len 241 --precision lerobot_bf16 --seed 0 --out OUT/expert_l1
+```
+Build and run it on Spike (inside the west workspace; the 64 MiB malloc arena is needed, the app's default 1 MiB makes
+XNNPACK run out of memory at load). Expected: `relL2=` well below `tol=2.000000e-03`, then `PASS`:
+```sh
+export EXECUTORCH_DIR=/path/to/executorch XNNPACK_DIR=/path/to/XNNPACK
+export EXEC_INPUTS=OUT/expert_l1.inputs.bin EXEC_EXPECTED=OUT/expert_l1.expected.bin EXEC_TOL=2e-3 EXEC_EMBED=hex \
+       ET_METHOD_POOL_SIZE=16777216 ET_TEMP_POOL_SIZE=1048576 \
+       EXTRA_CMAKE="-DXNNPACK_ENABLE_RISCV_ZVFBFA=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCONFIG_COMMON_LIBC_MALLOC_ARENA_SIZE=67108864"
+executorch/smolvla/scripts/build.sh chipyard_penguin/penguin OUT/expert_l1.pte build/smolvla_l1
+west build -d build/smolvla_l1 -t run
+```
+
 **Running another model.**
 - **Same runner:** `-DEXEC_MODEL=/abs/path/model.pte` builds the existing runner with any `.pte`. This works as long as
   every op in the model is either XNNPACK-delegated or in the runner's portable-kernel set.
