@@ -3,7 +3,7 @@
 # Shared by the two build modes of this app (the Zephyr one, ../CMakeLists.txt, and the bare-metal one,
 # ../baremetal/CMakeLists.txt): where the opt-in dependencies are, which XNNPACK test is built, and the
 # XNNPACK/pthreadpool/cpuinfo options. Moved here unchanged from the original Zephyr CMakeLists.txt
-# (commit e4ce006) so that both modes build the same thing from the same inputs.
+# (commit 7177e7d) so that both modes build the same thing from the same inputs.
 
 # ---- opt-in dependencies, located by variable or environment -----------------
 foreach(_v EXECUTORCH_DIR XNNPACK_DIR GOOGLETEST_DIR THIRD_PARTY_DIR)

@@ -28,8 +28,8 @@ Every app has a `sample.yaml` with scenarios for the two boards: `chipyard_pengu
 
 ## Get started
 
-Inside the maintainers' workspace (`~/toolsC/bringup`, which already has the board repo and Zephyr) nothing is
-needed beyond `source ../env.sh`. Anywhere else:
+In a maintainers' workspace that already has the board repo and Zephyr, nothing is needed beyond that workspace's
+environment script. Anywhere else:
 
 ```sh
 mkdir ws && cd ws
@@ -206,12 +206,17 @@ west build -d build/exec_fp32_chip -t run          # Spike, ISA derived from the
 Re-export: `python executorch/mnist/scripts/gen_model.py --precision bf16 --pte executorch/mnist/models/mnist_mlp_bf16.pte`.
 Twister/`run_tests.py` scenarios (`workload.executorch.*`, tag `executorch`) are build-only and need the group or the variables above.
 
-**In the maintainers' workspace** (`~/toolsC/bringup`) the verified build used:
+**Opting in without the west group** (a checkout you already have; keep the ExecuTorch one read-only):
 ```sh
-export EXECUTORCH_DIR=~/toolsC/archive/zephyr-chipyard-sw/third-party/executorch   # read-only; has local changes, don't modify
-export XNNPACK_DIR=~/toolsC/archive/XNNPACK
-export FLATC_EXECUTABLE=~/miniforge3/envs/zephyr/bin/flatc PYTHON_EXECUTABLE=~/miniforge3/envs/zephyr/bin/python   # old env, read-only
+export EXECUTORCH_DIR=/path/to/executorch XNNPACK_DIR=/path/to/XNNPACK
+export FLATC_EXECUTABLE=/path/to/flatc PYTHON_EXECUTABLE=/path/to/python
 ```
+
+**SmolVLA and XNNPACK's own tests (newer forks).** `executorch/smolvla` (an ExecuTorch runner for SmolVLA-style
+multi-method models, with a golden check) and `executorch/xnnpack-tests` (XNNPACK's gtests, bare-metal on Spike by
+default, Zephyr optional) do not use the west pins above. They take `EXECUTORCH_DIR` and `XNNPACK_DIR` pointing at
+pandabon/executorch branch `penguin-1.6` @ `ec44b35d62` and pandabon/XNNPACK branch `penguin` @ `7264d39dab`.
+`executorch/mnist` keeps the older pins.
 
 **Running another model.**
 - **Same runner:** `-DEXEC_MODEL=/abs/path/model.pte` builds the existing runner with any `.pte`. This works as long as

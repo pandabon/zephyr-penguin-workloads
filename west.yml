@@ -5,8 +5,8 @@
 #   mkdir ws && cd ws && git clone <this repo> zephyr-penguin-workloads
 #   west init -l zephyr-penguin-workloads && west update
 #
-# Inside the maintainers' workspace (~/toolsC/bringup) this file is NOT used: that workspace already
-# has the board repo and Zephyr, and these apps simply build against them.
+# Inside a maintainers' workspace that already has the board repo and Zephyr this file is NOT used:
+# the apps simply build against what is there.
 manifest:
   projects:
     - name: penguin               # the board repo's Zephyr module name (zephyr/module.yml)
