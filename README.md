@@ -274,9 +274,10 @@ returns (fault in `set_chunk_used`); the runner passes an empty span instead. `C
 * `third_party/tapeout-chipyard/` is the **Atlas/Saturn team's** work (authors: kellytou, Nicolas Reed, Eric Wen,
   Jason Tang, rylee4761, aabel14, Brandon Kim, Shashank Anand; per file in `third_party/tapeout-chipyard/NOTICE`),
   copied unmodified from the course tapeout repo (tapeout-chipyard) at 48c3a7d11f6de3f0cecb33ae6a31c24ec26ff9d8.
+  Only the files the Atlas apps here need are kept (list of what was left out: `NOTICE`).
   `tests/` is BSD-3-Clause (Regents of the University of California; `LICENSE` there). The
-  `generators/sp26-atlas-acc` part has **no licence file** upstream: fine for a private repo, to be cleared with the
-  Atlas team before publication.
+  `generators/sp26-atlas-acc` part has no licence file in that repo; the identical baremetal tree in atlas-npu is
+  BSD-3-Clause (`LICENSE.atlas-npu`). `fpex`'s `bf16_exp_model.py` has no licence file.
 * `atlas/upstream/` is our build glue around their sources. Our own files are Apache-2.0 (SPDX headers).
 * `executorch/mnist/` is derived from ExecuTorch's `examples/arm/executor_runner` (Meta Platforms, Inc. and Arm Limited,
   BSD-style licence of the ExecuTorch repo), as ported to RISC-V by Jonathan Lin in pandabon/zephyr-chipyard-sw, branch

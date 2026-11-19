@@ -1,15 +1,5 @@
 # Per-file git authors (plain names, from 'git log --follow --format=%an' in the source repo) of
 # generators/sp26-atlas-acc/baremetal/** at sp26-atlas-acc 2ae0bef209df. Not a licence statement; see NOTICE.
-baremetal/Makefile: Brandon Kim, Jason Tang, bandk1451, jason.tang, kellytou
-baremetal/README.md: Jason Tang, ericwen10, kellytou
-baremetal/agentic/resources/architecture.md: Eric Wen
-baremetal/agentic/resources/baremetal_test_examples.json: Eric Wen, rylee4761
-baremetal/agentic/resources/isa_docs.md: Eric Wen, rylee4761
-baremetal/agentic/resources/isa_docs_new.md: Eric Wen
-baremetal/agentic/resources/optimization_menu.json: Eric Wen
-baremetal/agentic/resources/rules.json: Eric Wen, kellytou, rylee4761
-baremetal/agentic/run_asm_tests.sh: Eric Wen
-baremetal/agentic/verif_buddy.py: Eric Wen, kellytou
 baremetal/assembler.py: Brandon Kim, Eric Wen, Jason Tang, aabel14, ericwen10, jason.tang, kellytou, rylee4761
 baremetal/assembly/alu_basic.S: ericwen10, kellytou, rylee4761
 baremetal/assembly/branch_accel_delay_slots_dma_vpu_xlu.S: Eric Wen, aabel14, kellytou, rylee4761
@@ -69,11 +59,8 @@ baremetal/assembly/perf_vpu_binary.S: aabel14
 baremetal/assembly/perf_vpu_reduction.S: aabel14
 baremetal/assembly/pw_vpu_overlap_pointwise_pack.S: aabel14, kellytou, rylee4761
 baremetal/assembly/pw_vpu_overlap_reduce_vli.S: aabel14, kellytou, rylee4761
-baremetal/assembly/saturn_atlas_cooperative/sab_a_ecall.S: Nicolas Reed, rylee4761
 baremetal/assembly/saturn_atlas_cooperative/sab_a_to_high.S: Nicolas Reed, rylee4761
-baremetal/assembly/saturn_atlas_cooperative/sab_a_to_zero.S: Nicolas Reed, rylee4761
 baremetal/assembly/saturn_atlas_cooperative/sab_b.S: Nicolas Reed, rylee4761
-baremetal/assembly/saturn_atlas_cooperative/sab_trampoline.S: Nicolas Reed, rylee4761
 baremetal/assembly/saturn_atlas_cooperative/sac_reduction_sum_to_high.S: Nicolas Reed, kellytou, rylee4761
 baremetal/assembly/saturn_atlas_cooperative/sas_4rung_2bank_arb.S: Nicolas Reed, aabel14, kellytou
 baremetal/assembly/saturn_atlas_cooperative/sas_8dma_rvv_vmem.S: Nicolas Reed, kellytou, rylee4761
@@ -149,7 +136,6 @@ baremetal/assembly/vpu_unary_simple.S: aabel14, kellytou, rylee4761
 baremetal/assembly/vpu_vli.S: aabel14, kellytou, rylee4761
 baremetal/assembly/xlu_fanout_branch_reuse.S: Eric Wen, aabel14, jason.tang, kellytou, rylee4761
 baremetal/assembly/xlu_transpose.S: aabel14, ericwen10, kellytou, rylee4761
-baremetal/coverage_analyzer.py: Eric Wen, kellytou
 baremetal/generators/gen_branch_on_accel_result_two_path_compute.py: Eric Wen
 baremetal/generators/gen_dma_8_channel_burst.py: kellytou
 baremetal/generators/gen_dma_bank_end_edges.py: kellytou
@@ -278,9 +264,6 @@ baremetal/generators/mxu_fp8_utils.py: kellytou
 baremetal/generators/software_models/mxu0_sa/__init__.py: ericwen10, kellytou
 baremetal/generators/software_models/mxu0_sa/converters.h: ericwen10, kellytou
 baremetal/generators/software_models/mxu0_sa/fp_formats.h: ericwen10, kellytou
-baremetal/generators/software_models/mxu0_sa/inner_product_trees_model.h: ericwen10, kellytou
-baremetal/generators/software_models/mxu0_sa/params_and_requests.h: ericwen10, kellytou
-baremetal/generators/software_models/mxu0_sa/sa_linear.h: ericwen10, kellytou
 baremetal/generators/software_models/mxu0_sa/systolic_array_linear.h: ericwen10, kellytou
 baremetal/generators/software_models/mxu0_sa/systolic_array_model.h: ericwen10, kellytou
 baremetal/generators/software_models/mxu0_sa/systolic_array_rtl_linear.py: ericwen10, kellytou
@@ -290,21 +273,17 @@ baremetal/generators/software_models/mxu1_ipt/converters.py: ericwen10, kellytou
 baremetal/generators/software_models/mxu1_ipt/fp_formats.py: ericwen10, kellytou
 baremetal/generators/software_models/mxu1_ipt/ipt_c/__init__.py: ericwen10, kellytou
 baremetal/generators/software_models/mxu1_ipt/ipt_c/converters.h: ericwen10, kellytou
-baremetal/generators/software_models/mxu1_ipt/ipt_c/converters.py: ericwen10, kellytou
 baremetal/generators/software_models/mxu1_ipt/ipt_c/fp_formats.h: ericwen10, kellytou
 baremetal/generators/software_models/mxu1_ipt/ipt_c/fp_formats.py: ericwen10, kellytou
 baremetal/generators/software_models/mxu1_ipt/ipt_c/inner_product_trees_model.h: ericwen10, kellytou
 baremetal/generators/software_models/mxu1_ipt/ipt_c/ipt_linear.h: ericwen10, kellytou
 baremetal/generators/software_models/mxu1_ipt/ipt_c/ipt_rtl_linear_c.py: ericwen10, kellytou
 baremetal/generators/software_models/mxu1_ipt/ipt_c/params_and_requests.h: ericwen10, kellytou
-baremetal/generators/software_models/mxu1_ipt/ipt_c/params_and_requests.py: ericwen10, kellytou
 baremetal/generators/software_models/mxu1_ipt/ipt_rtl_linear.py: ericwen10, kellytou
 baremetal/generators/software_models/mxu1_ipt/params_and_requests.py: ericwen10, kellytou
-baremetal/generators/software_models/mxu1_ipt/test_functional_vs_rtl.py: ericwen10, kellytou
 baremetal/generators/software_models/vpu/__init__.py: ericwen10, kellytou
 baremetal/generators/software_models/vpu/bf16_utils.py: kellytou
 baremetal/generators/software_models/vpu/fp8_e4m3.py: kellytou
-baremetal/generators/software_models/vpu/gen_vectors.py: kellytou
 baremetal/generators/software_models/vpu/lane_boxes/__init__.py: kellytou
 baremetal/generators/software_models/vpu/lane_boxes/add_sub_sum_vec.py: kellytou
 baremetal/generators/software_models/vpu/lane_boxes/col_add_vec.py: kellytou
@@ -330,12 +309,6 @@ baremetal/generators/software_models/vpu/lut_sources/lut_params.py: kellytou
 baremetal/generators/software_models/vpu/lut_sources/lut_tables.py: kellytou
 baremetal/generators/software_models/vpu/vector_engine_model.py: Nicolas Reed, kellytou
 baremetal/generators/software_models/vpu/vector_params.py: kellytou
-baremetal/generators/software_models/vpu/vector_rtl_forward.py: kellytou
 baremetal/generators/software_models/vpu/vpu_op.py: kellytou
-baremetal/generators/software_models/vpu/vpu_vector_file.py: kellytou
 baremetal/generators/vpu_gen_utils.py: kellytou
 baremetal/generators/vpu_overlap_pairwise_common.py: kellytou, rylee4761
-baremetal/master_wavier.el: Eric Wen
-baremetal/scripts/status.sh: jason.tang
-baremetal/scripts/summary.pl: jason.tang
-baremetal/tests/CMakeLists.txt: Jason Tang, ericwen10, jason.tang

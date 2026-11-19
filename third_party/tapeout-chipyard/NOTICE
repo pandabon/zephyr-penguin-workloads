@@ -11,6 +11,16 @@ submodule fpex at ab0cf6f5b0690538f9ebb1d6af46f7caf97837d4. The paths below
 the folder are the original paths, so a tapeout-chipyard checkout can replace
 this folder one for one (-DTAPEOUT_CHIPYARD=<checkout>).
 
+Only the files the apps in this repo build or run are kept (2026-11-18): the
+tests, the assembly tests, the assembler, the generators and the models they
+import, the fpex exp model, and the cooperative kernels the tests name as the
+source of the code they embed. Removed as unused: baremetal/agentic/,
+scripts/, Makefile, README.md, coverage_analyzer.py, master_wavier.el,
+tests/CMakeLists.txt, 3 saturn_atlas_cooperative kernels no test uses or names, and 6
+Python files and 3 C headers no generator imports. Every remaining file is
+still byte-identical to the source, and the kept tree regenerates every test
+and golden output byte for byte as the full tree did.
+
 It is the work of the Atlas/Saturn team, not ours. Authors (git author names
 from `git log --follow` of each file in the source repos; kellytou is "T.K.",
 ericwen10 is Eric Wen, nicorakela is Nicolas Rakela / Herrera):
@@ -46,8 +56,8 @@ ericwen10 is Eric Wen, nicorakela is Nicolas Rakela / Herrera):
         kellytou, Nicolas Reed, ericwen10
   .../baremetal/generators/software_models/
         kellytou, Nicolas Reed, ericwen10
-  .../baremetal/ (rest of the tree: assembly/*.S, generators/gen_*.py, tests/, scripts/, agentic/,
-        Makefile, README.md, ...): see AUTHORS-sp26-atlas-acc-baremetal.txt (per file)
+  .../baremetal/ (rest of the kept tree: assembly/*.S, generators/gen_*.py, assembler.py, ...):
+        see AUTHORS-sp26-atlas-acc-baremetal.txt (per file)
   .../dependencies/fpex/model/bf16_exp_model.py   Shashank Anand
 
 Licences
