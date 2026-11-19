@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Build one unmodified XNNPACK gtest file, in one of two modes (decision WL-8):
+# Build one unmodified XNNPACK gtest file, in one of two modes:
 #   --target baremetal  (default)  plain CMake + GCC/picolibc from the Zephyr SDK, no Zephyr, runs on Spike
 #                                  with scripts/run.sh (see baremetal/CMakeLists.txt)
 #   --target zephyr                the Zephyr app (a thin wrapper around `west build`; it prints the real

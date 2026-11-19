@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# BARE-METAL mode of the XNNPACK-gtest app (decision WL-8): the same UNMODIFIED XNNPACK test files as the Zephyr
+# BARE-METAL mode of the XNNPACK-gtest app: the same UNMODIFIED XNNPACK test files as the Zephyr
 # mode (../CMakeLists.txt), but with no Zephyr at all: GCC + picolibc from the Zephyr SDK, our small start-up
 # and HTIF console/exit (src/crt_htif.S, src/htif.c), run on Spike (../scripts/run.sh) or the chip.
 #

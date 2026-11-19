@@ -9,7 +9,7 @@
 # plus `flatc` and a python3 with torchgen/pyyaml for ExecuTorch's codegen (PYTHON_EXECUTABLE,
 # FLATC_EXECUTABLE or on PATH). Without them the configure step stops with an explanation.
 # Unset variables default to the checkouts of the west group `executorch` (west.yml, off by
-# default; PW-2): <west topdir>/modules/lib/executorch and <west topdir>/modules/lib/XNNPACK.
+# default): <west topdir>/modules/lib/executorch and <west topdir>/modules/lib/XNNPACK.
 # Turn it on once with `west config manifest.group-filter -- +executorch` and `west update`.
 # CMake downloads nothing, and nothing in the given trees is modified.
 #
@@ -147,7 +147,7 @@ set(EXECUTORCH_BUILD_HOST_TARGETS OFF CACHE BOOL "")
 set(EXECUTORCH_BUILD_XNNPACK ON CACHE BOOL "")
 set(XNNPACK_ENABLE_RISCV_GEMMINI OFF CACHE BOOL "Build XNNPACK with RISC-V Gemmini micro-kernels")
 set(XNNPACK_ENABLE_RISCV_VECTOR ON CACHE BOOL "Build XNNPACK with RISC-V Vector micro-kernels")
-# Zvfbfmin/Zvfbfa kernels are used for bf16 models; Penguin has both (D17), Spike needs them in
+# Zvfbfmin/Zvfbfa kernels are used for bf16 models; Penguin has both, Spike needs them in
 # its ISA string (the Penguin board adds zfbfmin/zvfbfa). Set OFF if your core lacks them.
 set(XNNPACK_ENABLE_RISCV_ZVFBFMIN ON CACHE BOOL "Build XNNPACK with RISC-V Zvfbfmin micro-kernels")
 set(XNNPACK_ENABLE_RISCV_ZVFBFA ON CACHE BOOL "Build XNNPACK with RISC-V Zvfbfa micro-kernels")

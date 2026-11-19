@@ -18,7 +18,7 @@ manifest:
       revision: 2dcab0911cc1e1b905670d74ebd9003f3ffb134d
       import: true                # also fetches Zephyr at the SHA the board repo pins
 
-    # Opt-in group `executorch` (PW-2): the sources executorch/mnist builds. Off by default, so a
+    # Opt-in group `executorch`: the sources executorch/mnist builds. Off by default, so a
     # plain `west update` fetches neither. Turn it on once per workspace, persistently:
     #   west config manifest.group-filter -- +executorch && west update
     # (the one-off `west update --group-filter +executorch` clones them, but west then still counts

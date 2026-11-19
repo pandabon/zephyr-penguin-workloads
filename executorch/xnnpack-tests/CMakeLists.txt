@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # One of XNNPACK's OWN, UNMODIFIED upstream GoogleTest files, run as a Zephyr application (on Spike or
-# the chip). Pilot for WL-8 / decision D32: everything runs on Zephyr, no bare-metal runtime.
+# the chip). Pilot: everything runs on Zephyr, no bare-metal runtime.
 #
 # What is compiled, all straight from the dependency trees (nothing is copied or patched):
 #   * the test file   XNNPACK_DIR/test/${XNN_TEST}.cc     (default f32-bf16-vcvt; any test/<name>.cc whose
